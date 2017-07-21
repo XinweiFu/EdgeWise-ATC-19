@@ -42,7 +42,8 @@
   (:import [org.apache.logging.log4j LogManager])
   (:import [org.apache.logging.log4j Level])
   (:import [org.apache.logging.log4j.core.config LoggerConfig])
-  (:import [org.apache.storm.generated LogConfig LogLevelAction])
+  (:import [org.apache.storm.generated LogConfig LogLevelAction]
+           (lee.cs.vt.fog.runtime FogRuntime))
   (:gen-class))
 
 (defmulti mk-suicide-fn cluster-mode)
@@ -657,6 +658,8 @@
         _ (if ((:storm-conf worker) TOPOLOGY-BACKPRESSURE-ENABLE)
             (.topology-backpressure storm-cluster-state storm-id topology-backpressure-callback))
 
+        fog-runtime (FogRuntime. @executors (:executor-receive-queue-map worker) 4)
+
         shutdown* (fn []
                     (log-message "Shutting down worker " storm-id " " assignment-id " " port)
                     (doseq [[_ socket] @(:cached-node+port->socket worker)]
@@ -665,6 +668,7 @@
                       (.close socket))
                     (log-message "Terminating messaging context")
                     (log-message "Shutting down executors")
+                    (.stop fog-runtime)
                     (doseq [executor @executors] (.shutdown executor))
                     (log-message "Shut down executors")
 
@@ -751,6 +755,9 @@
 
     (log-message "Worker has topology config " (redact-value (:storm-conf worker) STORM-ZOOKEEPER-TOPOLOGY-AUTH-PAYLOAD))
     (log-message "Worker " worker-id " for storm " storm-id " on " assignment-id ":" port " has finished loading")
+
+    (.start fog-runtime)
+
     ret
     ))))))
 

@@ -36,7 +36,8 @@
   (:import [org.apache.storm Config Constants])
   (:import [org.apache.storm.cluster ClusterStateContext DaemonType])
   (:import [org.apache.storm.grouping LoadAwareCustomStreamGrouping LoadAwareShuffleGrouping LoadMapping ShuffleGrouping])
-  (:import [java.util.concurrent ConcurrentLinkedQueue])
+  (:import [java.util.concurrent ConcurrentLinkedQueue]
+           (lee.cs.vt.fog.runtime ExecutorCallback ExecutorCallback$CallbackProvider ExecutorCallback$ExecutorType))
   (:require [org.apache.storm [thrift :as thrift]
              [cluster :as cluster] [disruptor :as disruptor] [stats :as stats]])
   (:require [org.apache.storm.daemon [task :as task]])
@@ -384,14 +385,16 @@
         ;; doesn't block (because it's a single threaded queue and the caching/consumer started
         ;; trick isn't thread-safe)
         system-threads [(start-batch-transfer->worker-handler! worker executor-data)]
-        handlers (with-error-reaction report-error-and-die
+        callback (with-error-reaction report-error-and-die
                    (mk-threads executor-data task-datas initial-credentials))
-        threads (concat handlers system-threads)]    
+        threads system-threads]
     (setup-ticks! worker executor-data)
 
     (log-message "Finished loading executor " component-id ":" (pr-str executor-id))
     ;; TODO: add method here to get rendered stats... have worker call that when heartbeating
     (reify
+      ExecutorCallback$CallbackProvider
+      (getCallback [this] callback)
       RunningExecutor
       (render-stats [this]
         (stats/render-stats! (:stats executor-data)))
@@ -491,8 +494,8 @@
   (let [{:keys [storm-conf component-id worker-context transfer-fn report-error sampler open-or-prepare-was-called?]} executor-data
         ^ISpoutWaitStrategy spout-wait-strategy (init-spout-wait-strategy storm-conf)
         max-spout-pending (executor-max-spout-pending storm-conf (count task-datas))
-        ^Integer max-spout-pending (if max-spout-pending (int max-spout-pending))        
-        last-active (atom false)        
+        ^Integer max-spout-pending (if max-spout-pending (int max-spout-pending))
+        last-active (atom false)
         spouts (ArrayList. (map :object (vals task-datas)))
         rand (Random. (Utils/secureRandomLong))
         ^DisruptorQueue transfer-queue (executor-data :batch-transfer-queue)
@@ -511,16 +514,16 @@
                             (condp = stream-id
                               Constants/SYSTEM_TICK_STREAM_ID (.rotate pending)
                               Constants/METRICS_TICK_STREAM_ID (metrics-tick executor-data (get task-datas task-id) tuple)
-                              Constants/CREDENTIALS_CHANGED_STREAM_ID 
+                              Constants/CREDENTIALS_CHANGED_STREAM_ID
                                 (let [task-data (get task-datas task-id)
                                       spout-obj (:object task-data)]
                                   (when (instance? ICredentialsListener spout-obj)
                                     (.setCredentials spout-obj (.getValue tuple 0))))
-                              ACKER-RESET-TIMEOUT-STREAM-ID 
+                              ACKER-RESET-TIMEOUT-STREAM-ID
                                 (let [id (.getValue tuple 0)
                                       pending-for-id (.get pending id)]
                                    (when pending-for-id
-                                     (.put pending id pending-for-id))) 
+                                     (.put pending id pending-for-id)))
                               (let [id (.getValue tuple 0)
                                     time-delta-ms (.getValue tuple 1)
                                     [stored-task-id spout-id tuple-finished-info start-time-ms] (.remove pending id)]
@@ -541,14 +544,62 @@
         has-ackers? (has-ackers? storm-conf)
         has-eventloggers? (has-eventloggers? storm-conf)
         emitted-count (MutableLong. 0)
-        empty-emit-streak (MutableLong. 0)]
-   
-    [(async-loop
-      (fn []
+        ;; empty-emit-streak (MutableLong. 0)
+        callback (reify ExecutorCallback
+           (getType [this] ExecutorCallback$ExecutorType/spout)
+           (getExecutorId [this] (:executor-id executor-data))
+           (run [this]
+             ;; This design requires that spouts be non-blocking
+             (disruptor/consume-batch receive-queue event-handler)
+
+             (let [active? @(:storm-active-atom executor-data)
+                   curr-count (.get emitted-count)
+                   throttle-on (and backpressure-enabled?
+                                    @(:throttle-on (:worker executor-data)))
+                   reached-max-spout-pending (and max-spout-pending
+                                                  (>= (.size pending) max-spout-pending))
+                   ]
+               (if active?
+                 ; activated
+                 (do
+                   (when-not @last-active
+                     (reset! last-active true)
+                     (log-message "Activating spout " component-id ":" (keys task-datas))
+                     (fast-list-iter [^ISpout spout spouts] (.activate spout)))
+
+                   (if (and (not (.isFull transfer-queue))
+                            (not throttle-on)
+                            (not reached-max-spout-pending))
+                     (fast-list-iter [^ISpout spout spouts] (.nextTuple spout))))
+                 ; deactivated
+                 (do
+                   (when @last-active
+                     (reset! last-active false)
+                     (log-message "Deactivating spout " component-id ":" (keys task-datas))
+                     (fast-list-iter [^ISpout spout spouts] (.deactivate spout)))
+                   ;; TODO: log that it's getting throttled
+                   (Time/sleep 100)
+                   (builtin-metrics/skipped-inactive! (:spout-throttling-metrics executor-data) (:stats executor-data))))
+
+               (if (and (= curr-count (.get emitted-count)) active?)
+                 (do
+                   ;; We don't need to sleep here
+                   ;;(.increment empty-emit-streak)
+                   ;;(.emptyEmit spout-wait-strategy (.get empty-emit-streak))
+                   ;; update the spout throttling metrics
+                   (if throttle-on
+                     (builtin-metrics/skipped-throttle! (:spout-throttling-metrics executor-data) (:stats executor-data))
+                     (if reached-max-spout-pending
+                       (builtin-metrics/skipped-max-spout! (:spout-throttling-metrics executor-data) (:stats executor-data)))))
+                 ;;(.set empty-emit-streak 0)
+                 )
+               (and (= curr-count (.get emitted-count)) active?)
+               )))
+        ]
+
         ;; If topology was started in inactive state, don't call (.open spout) until it's activated first.
-        (while (not @(:storm-active-atom executor-data))
-          (Thread/sleep 100))
-        
+        ;; (while (not @(:storm-active-atom executor-data)) (Thread/sleep 100))
+
         (log-message "Opening spout " component-id ":" (keys task-datas))
         (builtin-metrics/register-spout-throttling-metrics (:spout-throttling-metrics executor-data) storm-conf (:user-context (first (vals task-datas))))
         (doseq [[task-id task-data] task-datas
@@ -579,7 +630,7 @@
                                            (do
                                              (.put pending root-id [task-id
                                                                     message-id
-                                                                    {:stream out-stream-id 
+                                                                    {:stream out-stream-id
                                                                      :values (if debug? values nil)}
                                                                     (if (sampler) (System/currentTimeMillis))])
                                              (task/send-unanchored task-data
@@ -615,57 +666,12 @@
                     (reportError [this error]
                       (report-error error)
                       )))))
-        (reset! open-or-prepare-was-called? true) 
+        (reset! open-or-prepare-was-called? true)
         (log-message "Opened spout " component-id ":" (keys task-datas))
         (setup-metrics! executor-data)
-        
-        (fn []
-          ;; This design requires that spouts be non-blocking
-          (disruptor/consume-batch receive-queue event-handler)
-          
-          (let [active? @(:storm-active-atom executor-data)
-                curr-count (.get emitted-count)
-                throttle-on (and backpressure-enabled?
-                              @(:throttle-on (:worker executor-data)))
-                reached-max-spout-pending (and max-spout-pending
-                                               (>= (.size pending) max-spout-pending))
-                ]
-            (if active?
-              ; activated
-              (do
-                (when-not @last-active
-                  (reset! last-active true)
-                  (log-message "Activating spout " component-id ":" (keys task-datas))
-                  (fast-list-iter [^ISpout spout spouts] (.activate spout)))
 
-                (if (and (not (.isFull transfer-queue))
-                      (not throttle-on)
-                      (not reached-max-spout-pending))
-                  (fast-list-iter [^ISpout spout spouts] (.nextTuple spout))))
-              ; deactivated
-              (do
-                (when @last-active
-                  (reset! last-active false)
-                  (log-message "Deactivating spout " component-id ":" (keys task-datas))
-                  (fast-list-iter [^ISpout spout spouts] (.deactivate spout)))
-                ;; TODO: log that it's getting throttled
-                (Time/sleep 100)
-                (builtin-metrics/skipped-inactive! (:spout-throttling-metrics executor-data) (:stats executor-data))))
-
-            (if (and (= curr-count (.get emitted-count)) active?)
-              (do (.increment empty-emit-streak)
-                  (.emptyEmit spout-wait-strategy (.get empty-emit-streak))
-                  ;; update the spout throttling metrics
-                  (if throttle-on
-                    (builtin-metrics/skipped-throttle! (:spout-throttling-metrics executor-data) (:stats executor-data))
-                    (if reached-max-spout-pending
-                      (builtin-metrics/skipped-max-spout! (:spout-throttling-metrics executor-data) (:stats executor-data)))))
-              (.set empty-emit-streak 0)
-              ))
-          0))
-      :kill-fn (:report-error-and-die executor-data)
-      :factory? true
-      :thread-name (str component-id "-executor" (:executor-id executor-data)))]))
+        callback
+        ))
 
 (defn- tuple-time-delta! [^TupleImpl tuple]
   (let [ms (.getProcessSampleStartTime tuple)]
@@ -735,15 +741,23 @@
                                                                (.getSourceComponent tuple)
                                                                (.getSourceStreamId tuple)
                                                                delta)))))))
-        has-eventloggers? (has-eventloggers? storm-conf)]
+        has-eventloggers? (has-eventloggers? storm-conf)
+
+        event-handler (mk-task-receiver executor-data tuple-action-fn)
+        callback (reify ExecutorCallback
+         (getType [this] ExecutorCallback$ExecutorType/bolt)
+         (getExecutorId [this] (:executor-id executor-data))
+         (run [this] 
+            ;;(disruptor/consume-batch-when-available (:receive-queue executor-data) event-handler)
+            (disruptor/consume-batch (:receive-queue executor-data) event-handler)
+           )
+        )
+        ]
     
     ;; TODO: can get any SubscribedState objects out of the context now
 
-    [(async-loop
-      (fn []
         ;; If topology was started in inactive state, don't call prepare bolt until it's activated first.
-        (while (not @(:storm-active-atom executor-data))          
-          (Thread/sleep 100))
+        ;; (while (not @(:storm-active-atom executor-data)) (Thread/sleep 100))
         
         (log-message "Preparing bolt " component-id ":" (keys task-datas))
         (doseq [[task-id task-data] task-datas
@@ -840,14 +854,8 @@
         (log-message "Prepared bolt " component-id ":" (keys task-datas))
         (setup-metrics! executor-data)
 
-        (let [receive-queue (:receive-queue executor-data)
-              event-handler (mk-task-receiver executor-data tuple-action-fn)]
-          (fn []            
-            (disruptor/consume-batch-when-available receive-queue event-handler)
-            0)))
-      :kill-fn (:report-error-and-die executor-data)
-      :factory? true
-      :thread-name (str component-id "-executor" (:executor-id executor-data)))]))
+        callback
+        ))
 
 (defmethod close-component :spout [executor-data spout]
   (.close spout))
