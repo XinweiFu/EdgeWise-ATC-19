@@ -46,7 +46,7 @@ public class FogRuntime {
 
         // spoutThread = new SpoutThread(spouts);
 
-        policy = new RuntimePolicy(bolts);
+        policy = new RuntimePolicy(bolts, numThreadPoll);
 
         boltThreads = new HashSet<BoltThread>();
         for (int i = 0; i < numThreadPoll; i ++) {

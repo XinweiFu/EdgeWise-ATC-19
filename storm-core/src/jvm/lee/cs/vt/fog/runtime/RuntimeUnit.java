@@ -1,30 +1,28 @@
 package lee.cs.vt.fog.runtime;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
 public class RuntimeUnit {
     private final ExecutorCallback callback;
-    private final AtomicBoolean isRunning;
+    private boolean isRunning = false;
 
     public RuntimeUnit (ExecutorCallback callback) {
         this.callback = callback;
-        isRunning = new AtomicBoolean();
     }
 
     public void runAndReset() {
         callback.run();
-        isRunning.set(false);
-    }
-
-    public boolean isRunning() {
-        return isRunning.get();
-    }
-
-    public void setIsRunning() {
-        isRunning.set(true);
+        isRunning = false;
     }
 
     public ExecutorCallback getCallback() {
         return callback;
+    }
+
+    public synchronized boolean checkAndSet() {
+        if(!isRunning) {
+            isRunning = true;
+            return true;
+        } else {
+            return false;
+        }
     }
 }
