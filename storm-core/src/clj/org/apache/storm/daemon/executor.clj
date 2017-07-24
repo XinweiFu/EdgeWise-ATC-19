@@ -385,16 +385,20 @@
         ;; doesn't block (because it's a single threaded queue and the caching/consumer started
         ;; trick isn't thread-safe)
         system-threads [(start-batch-transfer->worker-handler! worker executor-data)]
-        callback (with-error-reaction report-error-and-die
+        callback-or-thread (with-error-reaction report-error-and-die
                    (mk-threads executor-data task-datas initial-credentials))
-        threads system-threads]
+        threads (if (= (:type executor-data) :spout)
+                  (concat callback-or-thread system-threads)
+                  system-threads)]
     (setup-ticks! worker executor-data)
 
     (log-message "Finished loading executor " component-id ":" (pr-str executor-id))
     ;; TODO: add method here to get rendered stats... have worker call that when heartbeating
     (reify
       ExecutorCallback$CallbackProvider
-      (getCallback [this] callback)
+      (getCallback [this]
+        (when (= (:type executor-data) :bolt)
+          callback-or-thread))
       RunningExecutor
       (render-stats [this]
         (stats/render-stats! (:stats executor-data)))
@@ -503,27 +507,27 @@
         backpressure-enabled? (= true (storm-conf TOPOLOGY-BACKPRESSURE-ENABLE))
 
         pending (RotatingMap.
-                 2 ;; microoptimize for performance of .size method
-                 (reify RotatingMap$ExpiredCallback
-                   (expire [this id [task-id spout-id tuple-info start-time-ms]]
-                     (let [time-delta (if start-time-ms (time-delta-ms start-time-ms))]
-                       (fail-spout-msg executor-data (get task-datas task-id) spout-id tuple-info time-delta "TIMEOUT" id debug?)
-                       ))))
+                  2 ;; microoptimize for performance of .size method
+                  (reify RotatingMap$ExpiredCallback
+                    (expire [this id [task-id spout-id tuple-info start-time-ms]]
+                      (let [time-delta (if start-time-ms (time-delta-ms start-time-ms))]
+                        (fail-spout-msg executor-data (get task-datas task-id) spout-id tuple-info time-delta "TIMEOUT" id debug?)
+                        ))))
         tuple-action-fn (fn [task-id ^TupleImpl tuple]
                           (let [stream-id (.getSourceStreamId tuple)]
                             (condp = stream-id
                               Constants/SYSTEM_TICK_STREAM_ID (.rotate pending)
                               Constants/METRICS_TICK_STREAM_ID (metrics-tick executor-data (get task-datas task-id) tuple)
                               Constants/CREDENTIALS_CHANGED_STREAM_ID
-                                (let [task-data (get task-datas task-id)
-                                      spout-obj (:object task-data)]
-                                  (when (instance? ICredentialsListener spout-obj)
-                                    (.setCredentials spout-obj (.getValue tuple 0))))
+                              (let [task-data (get task-datas task-id)
+                                    spout-obj (:object task-data)]
+                                (when (instance? ICredentialsListener spout-obj)
+                                  (.setCredentials spout-obj (.getValue tuple 0))))
                               ACKER-RESET-TIMEOUT-STREAM-ID
-                                (let [id (.getValue tuple 0)
-                                      pending-for-id (.get pending id)]
-                                   (when pending-for-id
-                                     (.put pending id pending-for-id)))
+                              (let [id (.getValue tuple 0)
+                                    pending-for-id (.get pending id)]
+                                (when pending-for-id
+                                  (.put pending id pending-for-id)))
                               (let [id (.getValue tuple 0)
                                     time-delta-ms (.getValue tuple 1)
                                     [stored-task-id spout-id tuple-finished-info start-time-ms] (.remove pending id)]
@@ -544,134 +548,131 @@
         has-ackers? (has-ackers? storm-conf)
         has-eventloggers? (has-eventloggers? storm-conf)
         emitted-count (MutableLong. 0)
-        ;; empty-emit-streak (MutableLong. 0)
-        callback (reify ExecutorCallback
-           (getType [this] ExecutorCallback$ExecutorType/spout)
-           (getExecutorId [this] (:executor-id executor-data))
-           (run [this]
-             ;; This design requires that spouts be non-blocking
-             (disruptor/consume-batch receive-queue event-handler)
+        empty-emit-streak (MutableLong. 0)]
 
-             (let [active? @(:storm-active-atom executor-data)
-                   curr-count (.get emitted-count)
-                   throttle-on (and backpressure-enabled?
-                                    @(:throttle-on (:worker executor-data)))
-                   reached-max-spout-pending (and max-spout-pending
-                                                  (>= (.size pending) max-spout-pending))
-                   ]
-               (if active?
-                 ; activated
-                 (do
-                   (when-not @last-active
-                     (reset! last-active true)
-                     (log-message "Activating spout " component-id ":" (keys task-datas))
-                     (fast-list-iter [^ISpout spout spouts] (.activate spout)))
+    [(async-loop
+       (fn []
+         ;; If topology was started in inactive state, don't call (.open spout) until it's activated first.
+         (while (not @(:storm-active-atom executor-data))
+           (Thread/sleep 100))
 
-                   (if (and (not (.isFull transfer-queue))
-                            (not throttle-on)
-                            (not reached-max-spout-pending))
-                     (fast-list-iter [^ISpout spout spouts] (.nextTuple spout))))
-                 ; deactivated
-                 (do
-                   (when @last-active
-                     (reset! last-active false)
-                     (log-message "Deactivating spout " component-id ":" (keys task-datas))
-                     (fast-list-iter [^ISpout spout spouts] (.deactivate spout)))
-                   ;; TODO: log that it's getting throttled
-                   (Time/sleep 100)
-                   (builtin-metrics/skipped-inactive! (:spout-throttling-metrics executor-data) (:stats executor-data))))
+         (log-message "Opening spout " component-id ":" (keys task-datas))
+         (builtin-metrics/register-spout-throttling-metrics (:spout-throttling-metrics executor-data) storm-conf (:user-context (first (vals task-datas))))
+         (doseq [[task-id task-data] task-datas
+                 :let [^ISpout spout-obj (:object task-data)
+                       tasks-fn (:tasks-fn task-data)
+                       send-spout-msg (fn [out-stream-id values message-id out-task-id]
+                                        (.increment emitted-count)
+                                        (let [out-tasks (if out-task-id
+                                                          (tasks-fn out-task-id out-stream-id values)
+                                                          (tasks-fn out-stream-id values))
+                                              rooted? (and message-id has-ackers?)
+                                              root-id (if rooted? (MessageId/generateId rand))
+                                              ^List out-ids (fast-list-for [t out-tasks] (if rooted? (MessageId/generateId rand)))]
+                                          (fast-list-iter [out-task out-tasks id out-ids]
+                                                          (let [tuple-id (if rooted?
+                                                                           (MessageId/makeRootId root-id id)
+                                                                           (MessageId/makeUnanchored))
+                                                                out-tuple (TupleImpl. worker-context
+                                                                                      values
+                                                                                      task-id
+                                                                                      out-stream-id
+                                                                                      tuple-id)]
+                                                            (transfer-fn out-task out-tuple)))
+                                          (if has-eventloggers?
+                                            (send-to-eventlogger executor-data task-data values component-id message-id rand))
+                                          (if (and rooted?
+                                                   (not (.isEmpty out-ids)))
+                                            (do
+                                              (.put pending root-id [task-id
+                                                                     message-id
+                                                                     {:stream out-stream-id
+                                                                      :values (if debug? values nil)}
+                                                                     (if (sampler) (System/currentTimeMillis))])
+                                              (task/send-unanchored task-data
+                                                                    ACKER-INIT-STREAM-ID
+                                                                    [root-id (Utils/bitXorVals out-ids) task-id]))
+                                            (when message-id
+                                              (ack-spout-msg executor-data task-data message-id
+                                                             {:stream out-stream-id :values values}
+                                                             (if (sampler) 0) "0:" debug?)))
+                                          (or out-tasks [])
+                                          ))]]
+           (builtin-metrics/register-all (:builtin-metrics task-data) storm-conf (:user-context task-data))
+           (builtin-metrics/register-queue-metrics {:sendqueue (:batch-transfer-queue executor-data)
+                                                    :receive receive-queue}
+                                                   storm-conf (:user-context task-data))
+           (when (instance? ICredentialsListener spout-obj) (.setCredentials spout-obj initial-credentials))
 
-               (if (and (= curr-count (.get emitted-count)) active?)
-                 (do
-                   ;; We don't need to sleep here
-                   ;;(.increment empty-emit-streak)
-                   ;;(.emptyEmit spout-wait-strategy (.get empty-emit-streak))
+           (.open spout-obj
+                  storm-conf
+                  (:user-context task-data)
+                  (SpoutOutputCollector.
+                    (reify ISpoutOutputCollector
+                      (^long getPendingCount[this]
+                        (.size pending)
+                        )
+                      (^List emit [this ^String stream-id ^List tuple ^Object message-id]
+                        (send-spout-msg stream-id tuple message-id nil)
+                        )
+                      (^void emitDirect [this ^int out-task-id ^String stream-id
+                                         ^List tuple ^Object message-id]
+                        (send-spout-msg stream-id tuple message-id out-task-id)
+                        )
+                      (reportError [this error]
+                        (report-error error)
+                        )))))
+         (reset! open-or-prepare-was-called? true)
+         (log-message "Opened spout " component-id ":" (keys task-datas))
+         (setup-metrics! executor-data)
+
+         (fn []
+           ;; This design requires that spouts be non-blocking
+           (disruptor/consume-batch receive-queue event-handler)
+
+           (let [active? @(:storm-active-atom executor-data)
+                 curr-count (.get emitted-count)
+                 throttle-on (and backpressure-enabled?
+                                  @(:throttle-on (:worker executor-data)))
+                 reached-max-spout-pending (and max-spout-pending
+                                                (>= (.size pending) max-spout-pending))
+                 ]
+             (if active?
+               ; activated
+               (do
+                 (when-not @last-active
+                   (reset! last-active true)
+                   (log-message "Activating spout " component-id ":" (keys task-datas))
+                   (fast-list-iter [^ISpout spout spouts] (.activate spout)))
+
+                 (if (and (not (.isFull transfer-queue))
+                          (not throttle-on)
+                          (not reached-max-spout-pending))
+                   (fast-list-iter [^ISpout spout spouts] (.nextTuple spout))))
+               ; deactivated
+               (do
+                 (when @last-active
+                   (reset! last-active false)
+                   (log-message "Deactivating spout " component-id ":" (keys task-datas))
+                   (fast-list-iter [^ISpout spout spouts] (.deactivate spout)))
+                 ;; TODO: log that it's getting throttled
+                 (Time/sleep 100)
+                 (builtin-metrics/skipped-inactive! (:spout-throttling-metrics executor-data) (:stats executor-data))))
+
+             (if (and (= curr-count (.get emitted-count)) active?)
+               (do (.increment empty-emit-streak)
+                   (.emptyEmit spout-wait-strategy (.get empty-emit-streak))
                    ;; update the spout throttling metrics
                    (if throttle-on
                      (builtin-metrics/skipped-throttle! (:spout-throttling-metrics executor-data) (:stats executor-data))
                      (if reached-max-spout-pending
                        (builtin-metrics/skipped-max-spout! (:spout-throttling-metrics executor-data) (:stats executor-data)))))
-                 ;;(.set empty-emit-streak 0)
-                 )
-               (and (= curr-count (.get emitted-count)) active?)
-               )))
-        ]
-
-        ;; If topology was started in inactive state, don't call (.open spout) until it's activated first.
-        ;; (while (not @(:storm-active-atom executor-data)) (Thread/sleep 100))
-
-        (log-message "Opening spout " component-id ":" (keys task-datas))
-        (builtin-metrics/register-spout-throttling-metrics (:spout-throttling-metrics executor-data) storm-conf (:user-context (first (vals task-datas))))
-        (doseq [[task-id task-data] task-datas
-                :let [^ISpout spout-obj (:object task-data)
-                     tasks-fn (:tasks-fn task-data)
-                     send-spout-msg (fn [out-stream-id values message-id out-task-id]
-                                       (.increment emitted-count)
-                                       (let [out-tasks (if out-task-id
-                                                         (tasks-fn out-task-id out-stream-id values)
-                                                         (tasks-fn out-stream-id values))
-                                             rooted? (and message-id has-ackers?)
-                                             root-id (if rooted? (MessageId/generateId rand))
-                                             ^List out-ids (fast-list-for [t out-tasks] (if rooted? (MessageId/generateId rand)))]
-                                         (fast-list-iter [out-task out-tasks id out-ids]
-                                                         (let [tuple-id (if rooted?
-                                                                          (MessageId/makeRootId root-id id)
-                                                                          (MessageId/makeUnanchored))
-                                                               out-tuple (TupleImpl. worker-context
-                                                                                     values
-                                                                                     task-id
-                                                                                     out-stream-id
-                                                                                     tuple-id)]
-                                                           (transfer-fn out-task out-tuple)))
-                                         (if has-eventloggers?
-                                           (send-to-eventlogger executor-data task-data values component-id message-id rand))
-                                         (if (and rooted?
-                                                  (not (.isEmpty out-ids)))
-                                           (do
-                                             (.put pending root-id [task-id
-                                                                    message-id
-                                                                    {:stream out-stream-id
-                                                                     :values (if debug? values nil)}
-                                                                    (if (sampler) (System/currentTimeMillis))])
-                                             (task/send-unanchored task-data
-                                                                   ACKER-INIT-STREAM-ID
-                                                                   [root-id (Utils/bitXorVals out-ids) task-id]))
-                                           (when message-id
-                                             (ack-spout-msg executor-data task-data message-id
-                                                            {:stream out-stream-id :values values}
-                                                            (if (sampler) 0) "0:" debug?)))
-                                         (or out-tasks [])
-                                         ))]]
-          (builtin-metrics/register-all (:builtin-metrics task-data) storm-conf (:user-context task-data))
-          (builtin-metrics/register-queue-metrics {:sendqueue (:batch-transfer-queue executor-data)
-                                                   :receive receive-queue}
-                                                  storm-conf (:user-context task-data))
-          (when (instance? ICredentialsListener spout-obj) (.setCredentials spout-obj initial-credentials))
-
-          (.open spout-obj
-                 storm-conf
-                 (:user-context task-data)
-                 (SpoutOutputCollector.
-                  (reify ISpoutOutputCollector
-                    (^long getPendingCount[this]
-                      (.size pending)
-                      )
-                    (^List emit [this ^String stream-id ^List tuple ^Object message-id]
-                      (send-spout-msg stream-id tuple message-id nil)
-                      )
-                    (^void emitDirect [this ^int out-task-id ^String stream-id
-                                       ^List tuple ^Object message-id]
-                      (send-spout-msg stream-id tuple message-id out-task-id)
-                      )
-                    (reportError [this error]
-                      (report-error error)
-                      )))))
-        (reset! open-or-prepare-was-called? true)
-        (log-message "Opened spout " component-id ":" (keys task-datas))
-        (setup-metrics! executor-data)
-
-        callback
-        ))
+               (.set empty-emit-streak 0)
+               ))
+           0))
+       :kill-fn (:report-error-and-die executor-data)
+       :factory? true
+       :thread-name (str component-id "-executor" (:executor-id executor-data)))]))
 
 (defn- tuple-time-delta! [^TupleImpl tuple]
   (let [ms (.getProcessSampleStartTime tuple)]

@@ -9,30 +9,32 @@ import java.util.Set;
 
 public class FogRuntime {
 
-    private final Set<ExecutorCallback> spouts;
+    // private final Set<ExecutorCallback> spouts;
     private final Set<BoltRuntimeUnit> bolts;
 
-    private final SpoutThread spoutThread;
+    // private final SpoutThread spoutThread;
     private final Set<BoltThread> boltThreads;
     private final RuntimePolicy policy;
 
     public FogRuntime (List<ExecutorCallback.CallbackProvider> list,
                        Map<Object, DisruptorQueue> map,
                        int numThreadPoll) {
-        spouts = new HashSet<ExecutorCallback>();
+        // spouts = new HashSet<ExecutorCallback>();
         bolts = new HashSet<BoltRuntimeUnit>();
 
         for (ExecutorCallback.CallbackProvider provider : list) {
             ExecutorCallback callback = provider.getCallback();
+            if (callback == null)
+                continue;
             Object executorId = callback.getExecutorId();
             DisruptorQueue queue = map.get(executorId);
             assert(queue != null);
 
             ExecutorCallback.ExecutorType type = callback.getType();
             switch (type) {
-                case spout:
-                    spouts.add(callback);
-                    break;
+                // case spout:
+                //    spouts.add(callback);
+                //    break;
                 case bolt:
                     bolts.add(new BoltRuntimeUnit(queue, callback));
                     break;
@@ -42,7 +44,7 @@ public class FogRuntime {
             }
         }
 
-        spoutThread = new SpoutThread(spouts);
+        // spoutThread = new SpoutThread(spouts);
 
         policy = new RuntimePolicy(bolts);
 
@@ -56,14 +58,15 @@ public class FogRuntime {
     }
 
     public void start() {
-        spoutThread.start();
+        // spoutThread.start();
+
         for (BoltThread boltThread : boltThreads) {
             boltThread.start();
         }
     }
 
     public void stop() throws InterruptedException {
-        spoutThread.stopAndWait();
+        // spoutThread.stopAndWait();
 
         for (BoltThread boltThread : boltThreads) {
             boltThread.stopAndWait();
@@ -73,12 +76,14 @@ public class FogRuntime {
     private void test() {
         System.out.println("Fog Runtime Test begins:");
 
+        /*
         System.out.println("Spouts:");
         for (ExecutorCallback spout : spouts) {
             System.out.println(spout.getExecutorId());
             System.out.println(spout.getType());
             spout.run();
         }
+        */
 
         System.out.println("Bolts:");
         for (BoltRuntimeUnit unit : bolts) {
