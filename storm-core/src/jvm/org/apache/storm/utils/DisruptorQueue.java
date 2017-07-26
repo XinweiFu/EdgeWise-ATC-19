@@ -459,6 +459,33 @@ public class DisruptorQueue implements IStatefulObject {
         }
     }
 
+    public void consumeHalfBatch(EventHandler<Object> handler) {
+        if (_metrics.population() > 0) {
+            consumeHalfBatchWhenAvailable(handler);
+        }
+    }
+
+    private void consumeHalfBatchWhenAvailable(EventHandler<Object> handler) {
+        try {
+            final long nextSequence = _consumer.get() + 1;
+            long availableSequence = _barrier.waitFor(nextSequence);
+
+            if (availableSequence >= nextSequence) {
+                long dist = availableSequence - nextSequence + 1;
+                long half_dist = (dist + 1) / 2;
+                final long cursor = half_dist + nextSequence - 1;
+                consumeBatchToCursor(cursor, handler);
+            }
+        } catch (TimeoutException te) {
+            //Ignored
+        } catch (AlertException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
     private void consumeBatchToCursor(long cursor, EventHandler<Object> handler) {
         for (long curr = _consumer.get() + 1; curr <= cursor; curr++) {
             try {
