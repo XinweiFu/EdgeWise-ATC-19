@@ -648,7 +648,10 @@
                  (if (and (not (.isFull transfer-queue))
                           (not throttle-on)
                           (not reached-max-spout-pending))
-                   (fast-list-iter [^ISpout spout spouts] (.nextTuple spout))))
+                   (fast-list-iter [^ISpout spout spouts] (.nextTuple spout)))
+                 (if (.isFull transfer-queue) (fast-list-iter [^ISpout spout spouts] (.ack spout nil)))
+                 (if throttle-on (fast-list-iter [^ISpout spout spouts] (.fail spout nil)))
+                 )
                ; deactivated
                (do
                  (when @last-active
