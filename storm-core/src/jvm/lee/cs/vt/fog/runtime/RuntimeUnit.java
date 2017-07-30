@@ -25,4 +25,12 @@ public class RuntimeUnit {
             return false;
         }
     }
+
+    public boolean isRunning() {
+        return isRunning;
+    }
+
+    public void setIsRunning() {
+        isRunning = true;
+    }
 }

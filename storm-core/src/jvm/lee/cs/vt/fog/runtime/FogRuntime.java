@@ -18,7 +18,8 @@ public class FogRuntime {
 
     public FogRuntime (List<ExecutorCallback.CallbackProvider> list,
                        Map<Object, DisruptorQueue> map,
-                       int numThreadPoll) {
+                       int numThreadPoll,
+                       String policyString) {
         // spouts = new HashSet<ExecutorCallback>();
         bolts = new HashSet<BoltRuntimeUnit>();
 
@@ -45,8 +46,21 @@ public class FogRuntime {
         }
 
         // spoutThread = new SpoutThread(spouts);
+        if (policyString == null)
+            policy = new SimpleRuntimePolicy(bolts);
+        else {
+            switch (policyString) {
+                case "simple":
+                    policy = new SimpleRuntimePolicy(bolts);
+                    break;
+                case "ranking":
+                    policy = new RankingRuntimePolicy(bolts, numThreadPoll);
+                    break;
+                default:
+                    policy = new SimpleRuntimePolicy(bolts);
+            }
+        }
 
-        policy = new RuntimePolicy(bolts, numThreadPoll);
 
         boltThreads = new HashSet<BoltThread>();
         for (int i = 0; i < numThreadPoll; i ++) {

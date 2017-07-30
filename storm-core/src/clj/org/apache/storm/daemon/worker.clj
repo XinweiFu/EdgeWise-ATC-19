@@ -658,7 +658,8 @@
         _ (if ((:storm-conf worker) TOPOLOGY-BACKPRESSURE-ENABLE)
             (.topology-backpressure storm-cluster-state storm-id topology-backpressure-callback))
 
-        fog-runtime (FogRuntime. @executors (:executor-receive-queue-map worker) 4)
+        policy (.get storm-conf "policy")
+        fog-runtime (FogRuntime. @executors (:executor-receive-queue-map worker) 4 policy)
 
         shutdown* (fn []
                     (log-message "Shutting down worker " storm-id " " assignment-id " " port)
