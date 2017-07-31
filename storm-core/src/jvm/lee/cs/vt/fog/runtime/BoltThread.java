@@ -9,8 +9,10 @@ public class BoltThread extends FogRuntimeThread{
 
     @Override
     public void executeUnit() {
-        RuntimeUnit runtimeUnit = policy.getUnitAndSet();
-        if (runtimeUnit != null)
-            runtimeUnit.runAndReset();
+        BoltRuntimeUnit runtimeUnit = policy.getUnitAndSet();
+        if (runtimeUnit != null) {
+            runtimeUnit.run();
+            policy.unitReset(runtimeUnit);
+        }
     }
 }

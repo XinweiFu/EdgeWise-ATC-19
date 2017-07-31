@@ -57,6 +57,11 @@ public class RankingRuntimePolicy implements RuntimePolicy {
         return null;
     }
 
+    @Override
+    public void unitReset(BoltRuntimeUnit unit) {
+        unit.resetIsRunning();
+    }
+
     private class Pair {
         private final BoltRuntimeUnit unit;
         private final long num;

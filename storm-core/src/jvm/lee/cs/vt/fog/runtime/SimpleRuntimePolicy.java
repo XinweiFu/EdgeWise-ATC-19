@@ -1,13 +1,16 @@
 package lee.cs.vt.fog.runtime;
 
+import java.util.HashSet;
 import java.util.Set;
 
 public class SimpleRuntimePolicy implements RuntimePolicy {
 
     private final Set<BoltRuntimeUnit> bolts;
+    private final Set<BoltRuntimeUnit> availableBolts;
 
     public SimpleRuntimePolicy(Set<BoltRuntimeUnit> bolts) {
         this.bolts = bolts;
+        this.availableBolts = new HashSet<BoltRuntimeUnit>(bolts);
         System.out.println("Policy: SimpleRuntimePolicy");
     }
 
@@ -16,10 +19,7 @@ public class SimpleRuntimePolicy implements RuntimePolicy {
         BoltRuntimeUnit ret = null;
         long max = 0;
 
-        for(BoltRuntimeUnit bolt : bolts) {
-            if (bolt.isRunning())
-                continue;
-
+        for(BoltRuntimeUnit bolt : availableBolts) {
             long numInQ = bolt.getNumInQ();
             if (numInQ > max) {
                 max = numInQ;
@@ -28,9 +28,14 @@ public class SimpleRuntimePolicy implements RuntimePolicy {
         }
 
         if (ret != null)
-            ret.setIsRunning();
+            availableBolts.remove(ret);
 
         return ret;
+    }
+
+    @Override
+    public synchronized void unitReset(BoltRuntimeUnit unit) {
+        availableBolts.add(unit);
     }
 
 }

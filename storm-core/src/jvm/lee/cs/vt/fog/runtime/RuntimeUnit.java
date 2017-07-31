@@ -13,6 +13,10 @@ public class RuntimeUnit {
         isRunning = false;
     }
 
+    public void run() {
+        callback.run();
+    }
+
     public ExecutorCallback getCallback() {
         return callback;
     }
@@ -32,5 +36,9 @@ public class RuntimeUnit {
 
     public void setIsRunning() {
         isRunning = true;
+    }
+
+    public void resetIsRunning() {
+        isRunning = false;
     }
 }
