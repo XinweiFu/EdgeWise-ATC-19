@@ -56,6 +56,9 @@ public class FogRuntime {
                 case "ranking":
                     policy = new RankingRuntimePolicy(bolts, numThreadPoll);
                     break;
+                case "random":
+                    policy = new RandomRuntimePolicy(bolts);
+                    break;
                 default:
                     policy = new SimpleRuntimePolicy(bolts);
             }
