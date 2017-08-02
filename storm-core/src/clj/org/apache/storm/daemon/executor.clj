@@ -751,20 +751,37 @@
         has-eventloggers? (has-eventloggers? storm-conf)
 
         event-handler (mk-task-receiver executor-data tuple-action-fn)
-        callback (if (= true (.get storm-conf "consumeHalf"))
-                   (reify ExecutorCallback
-                     (getType [this] ExecutorCallback$ExecutorType/bolt)
-                     (getExecutorId [this] (:executor-id executor-data))
-                     (run [this]
-                       ;; (log-message "consume-half-batch")
-                       (disruptor/consume-half-batch (:receive-queue executor-data) event-handler)))
-                   (reify ExecutorCallback
-                     (getType [this] ExecutorCallback$ExecutorType/bolt)
-                     (getExecutorId [this] (:executor-id executor-data))
-                     (run [this]
-                       ;; (log-message "consume-batch")
-                       (disruptor/consume-batch (:receive-queue executor-data) event-handler)))
-                   )]
+        callback (let [consume (.get storm-conf "consume")
+                       constant (.get storm-conf "constant")]
+                   (case consume
+                     "all"  (reify ExecutorCallback
+                               (getType [this] ExecutorCallback$ExecutorType/bolt)
+                               (getExecutorId [this] (:executor-id executor-data))
+                               (run [this]
+                                 ;;(log-message "consume-batch")
+                                 (disruptor/consume-batch (:receive-queue executor-data) event-handler)))
+
+                     "half" (reify ExecutorCallback
+                               (getType [this] ExecutorCallback$ExecutorType/bolt)
+                               (getExecutorId [this] (:executor-id executor-data))
+                               (run [this]
+                                 ;;(log-message "consume-half-batch")
+                                 (disruptor/consume-half-batch (:receive-queue executor-data) event-handler)))
+
+                     "constant" (reify ExecutorCallback
+                                  (getType [this] ExecutorCallback$ExecutorType/bolt)
+                                  (getExecutorId [this] (:executor-id executor-data))
+                                  (run [this]
+                                    ;;(log-message "consume-constant-batch")
+                                    (disruptor/consume-constant-batch (:receive-queue executor-data) constant event-handler)))
+
+                     (reify ExecutorCallback
+                       (getType [this] ExecutorCallback$ExecutorType/bolt)
+                       (getExecutorId [this] (:executor-id executor-data))
+                       (run [this]
+                         ;;(log-message "consume-batch")
+                         (disruptor/consume-batch (:receive-queue executor-data) event-handler)))
+                     ))]
     
     ;; TODO: can get any SubscribedState objects out of the context now
 

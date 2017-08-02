@@ -78,6 +78,10 @@
   [^DisruptorQueue queue handler]
   (.consumeHalfBatch queue handler))
 
+(defn consume-constant-batch
+  [^DisruptorQueue queue constant handler]
+  (.consumeConstantBatch queue constant handler))
+
 (defn consume-batch-when-available
   [^DisruptorQueue queue handler]
   (.consumeBatchWhenAvailable queue handler))
