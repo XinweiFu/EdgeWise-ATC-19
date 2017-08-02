@@ -6,8 +6,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class FogRuntime {
+
+    public static final Lock LOCK = new ReentrantLock();;
+    public static final Condition CONDITION = LOCK.newCondition();
 
     // private final Set<ExecutorCallback> spouts;
     private final Set<BoltRuntimeUnit> bolts;
@@ -17,7 +23,7 @@ public class FogRuntime {
     private final RuntimePolicy policy;
 
     public FogRuntime (List<ExecutorCallback.CallbackProvider> list,
-                       Map<Object, DisruptorQueue> map,
+                       Map<Object, BoltReceiveDisruptorQueue> map,
                        int numThreadPoll,
                        String policyString) {
         // spouts = new HashSet<ExecutorCallback>();
@@ -28,7 +34,7 @@ public class FogRuntime {
             if (callback == null)
                 continue;
             Object executorId = callback.getExecutorId();
-            DisruptorQueue queue = map.get(executorId);
+            BoltReceiveDisruptorQueue queue = map.get(executorId);
             assert(queue != null);
 
             ExecutorCallback.ExecutorType type = callback.getType();
@@ -58,6 +64,9 @@ public class FogRuntime {
                     break;
                 case "random":
                     policy = new RandomRuntimePolicy(bolts);
+                    break;
+                case "signal":
+                    policy = new SimpleSignalRuntimePolicy(bolts);
                     break;
                 default:
                     policy = new SimpleRuntimePolicy(bolts);

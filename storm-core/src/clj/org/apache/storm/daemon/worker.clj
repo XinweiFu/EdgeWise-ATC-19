@@ -61,7 +61,7 @@
               assignment)))))
 
 (defnk do-executor-heartbeats [worker :executors nil]
-  ;; stats is how we know what executors are assigned to this worker 
+  ;; stats is how we know what executors are assigned to this worker
   (let [stats (if-not executors
                   (into {} (map (fn [e] {e nil}) (:executors worker)))
                   (->> executors
@@ -208,7 +208,7 @@
 (defn- mk-receive-queue-map [storm-conf executors]
   (->> executors
        ;; TODO: this depends on the type of executor
-       (map (fn [e] [e (disruptor/disruptor-queue (str "receive-queue" e)
+       (map (fn [e] [e (disruptor/bolt-receive-disruptor-queue (str "receive-queue" e)
                                                   (storm-conf TOPOLOGY-EXECUTOR-RECEIVE-BUFFER-SIZE)
                                                   (storm-conf TOPOLOGY-DISRUPTOR-WAIT-TIMEOUT-MILLIS)
                                                   :batch-size (storm-conf TOPOLOGY-DISRUPTOR-BATCH-SIZE)
@@ -511,7 +511,7 @@
             target-log-level (:target-log-level logger-setting)
             reset-log-level (:reset-log-level logger-setting)]
         (when (> (coerce/to-long (time/now)) timeout)
-          (log-message logger-name ": Resetting level to " reset-log-level) 
+          (log-message logger-name ": Resetting level to " reset-log-level)
           (set-logger-level logger-context logger-name reset-log-level)
           (swap! latest-log-config-atom
             (fn [prev]
@@ -532,7 +532,7 @@
            (let [logger-name (if (= msg-logger-name "ROOT")
                                 LogManager/ROOT_LOGGER_NAME
                                 msg-logger-name)]
-             ;; the new-timeouts map now contains logger => timeout 
+             ;; the new-timeouts map now contains logger => timeout
              (when (.is_set_reset_log_level_timeout_epoch logger-level)
                {logger-name {:action (.get_action logger-level)
                              :target-log-level (Level/toLevel (.get_target_log_level logger-level))
@@ -556,7 +556,7 @@
               action (.get_action logger-level)]
           (if (= action LogLevelAction/UPDATE)
             (set-logger-level logger-context logger-name level))))
-   
+
       (.updateLoggers logger-context)
       (reset! latest-log-config new-log-configs)
       (log-debug "New merged log config is " @latest-log-config))))
@@ -597,7 +597,7 @@
 
   (declare establish-log-setting-callback)
 
-  ;; start out with empty list of timeouts 
+  ;; start out with empty list of timeouts
   (def latest-log-config (atom {}))
   (def original-log-levels (atom {}))
 
@@ -640,17 +640,17 @@
         _ (reset! executors (dofor [e (:executors worker)] (executor/mk-executor worker e initial-credentials)))
 
         transfer-tuples (mk-transfer-tuples-handler worker)
-        
-        transfer-thread (disruptor/consume-loop* (:transfer-queue worker) transfer-tuples)               
+
+        transfer-thread (disruptor/consume-loop* (:transfer-queue worker) transfer-tuples)
 
         disruptor-handler (mk-disruptor-backpressure-handler worker)
         _ (.registerBackpressureCallback (:transfer-queue worker) disruptor-handler)
         _ (-> (.setHighWaterMark (:transfer-queue worker) ((:storm-conf worker) BACKPRESSURE-DISRUPTOR-HIGH-WATERMARK))
               (.setLowWaterMark ((:storm-conf worker) BACKPRESSURE-DISRUPTOR-LOW-WATERMARK))
               (.setEnableBackpressure ((:storm-conf worker) TOPOLOGY-BACKPRESSURE-ENABLE)))
-        backpressure-handler (mk-backpressure-handler @executors)        
+        backpressure-handler (mk-backpressure-handler @executors)
         backpressure-thread (WorkerBackpressureThread. (:backpressure-trigger worker) worker backpressure-handler)
-        _ (if ((:storm-conf worker) TOPOLOGY-BACKPRESSURE-ENABLE) 
+        _ (if ((:storm-conf worker) TOPOLOGY-BACKPRESSURE-ENABLE)
             (.start backpressure-thread))
         topology-backpressure-callback (fn cb [& ignored]
                    (let [throttle-on (.topology-backpressure storm-cluster-state storm-id cb)]
@@ -734,7 +734,7 @@
                                     (establish-log-setting-callback)))]
     (reset! original-log-levels (get-logger-levels))
     (log-message "Started with log levels: " @original-log-levels)
-  
+
     (defn establish-log-setting-callback []
       (.topology-log-config (:storm-cluster-state worker) storm-id (fn [args] (check-log-config-changed))))
 

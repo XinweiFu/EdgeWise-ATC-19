@@ -3,9 +3,9 @@ package lee.cs.vt.fog.runtime;
 import org.apache.storm.utils.DisruptorQueue;
 
 public class BoltRuntimeUnit extends RuntimeUnit{
-    private final DisruptorQueue queue;
+    private final BoltReceiveDisruptorQueue queue;
 
-    public BoltRuntimeUnit(DisruptorQueue queue, ExecutorCallback callback) {
+    public BoltRuntimeUnit(BoltReceiveDisruptorQueue queue, ExecutorCallback callback) {
         super(callback);
         assert(callback.getType() == ExecutorCallback.ExecutorType.bolt);
 
@@ -15,5 +15,13 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     public long getNumInQ() {
         DisruptorQueue.QueueMetrics m = queue.getMetrics();
         return m.population();
+    }
+
+    public void setIsRunning() {
+        queue.setIsRunning();
+    }
+
+    public void resetIsRunning() {
+        queue.resetIsRunning();
     }
 }
