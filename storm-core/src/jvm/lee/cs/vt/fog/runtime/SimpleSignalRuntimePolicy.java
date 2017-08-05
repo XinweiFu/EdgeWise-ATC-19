@@ -40,7 +40,7 @@ public class SimpleSignalRuntimePolicy implements RuntimePolicy {
     }
 
     @Override
-    public synchronized void unitReset(BoltRuntimeUnit unit) {
+    public void unitReset(BoltRuntimeUnit unit) {
         lock.lock();
         availableBolts.add(unit);
         lock.unlock();
