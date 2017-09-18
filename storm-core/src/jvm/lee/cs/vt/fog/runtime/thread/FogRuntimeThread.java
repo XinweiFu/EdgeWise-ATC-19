@@ -1,4 +1,4 @@
-package lee.cs.vt.fog.runtime;
+package lee.cs.vt.fog.runtime.thread;
 
 public abstract class FogRuntimeThread extends Thread {
 

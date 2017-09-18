@@ -1,8 +1,12 @@
-package lee.cs.vt.fog.runtime;
+package lee.cs.vt.fog.runtime.thread;
+
+import lee.cs.vt.fog.runtime.misc.ExecutorCallback;
 
 import java.util.Set;
 
-public class SpoutThread extends FogRuntimeThread{
+// Not in use
+
+public class SpoutThread extends FogRuntimeThread {
     private final Set<ExecutorCallback> spouts;
 
     public SpoutThread(Set<ExecutorCallback> spouts) {

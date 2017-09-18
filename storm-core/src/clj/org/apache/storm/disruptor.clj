@@ -17,7 +17,7 @@
 (ns org.apache.storm.disruptor
   (:import [org.apache.storm.utils DisruptorQueue WorkerBackpressureCallback DisruptorBackpressureCallback])
   (:import [com.lmax.disruptor.dsl ProducerType]
-           (lee.cs.vt.fog.runtime BoltReceiveDisruptorQueue))
+           (lee.cs.vt.fog.runtime.misc BoltReceiveDisruptorQueue))
   (:require [clojure [string :as str]])
   (:require [clojure [set :as set]])
   (:use [clojure walk])

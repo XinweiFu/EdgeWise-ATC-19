@@ -1,4 +1,8 @@
-package lee.cs.vt.fog.runtime;
+package lee.cs.vt.fog.runtime.policy;
+
+import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
+import lee.cs.vt.fog.runtime.FogRuntime;
+import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnitGroup;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -7,15 +11,20 @@ import java.util.concurrent.locks.Lock;
 
 public class SimpleSignalRuntimePolicy implements RuntimePolicy {
 
-    private final Set<BoltRuntimeUnit> bolts;
+    private final Set<BoltRuntimeUnitGroup> groups;
     private final Set<BoltRuntimeUnit> availableBolts;
 
     private final Lock lock = FogRuntime.LOCK;
     private final Condition condition = FogRuntime.CONDITION;
 
-    public SimpleSignalRuntimePolicy(Set<BoltRuntimeUnit> bolts) {
-        this.bolts = bolts;
-        this.availableBolts = new HashSet<BoltRuntimeUnit>(bolts);
+    public SimpleSignalRuntimePolicy(Set<BoltRuntimeUnitGroup> groups) {
+        this.groups = groups;
+        this.availableBolts = new HashSet<BoltRuntimeUnit>();
+
+        for (BoltRuntimeUnitGroup group : groups) {
+            availableBolts.addAll(group.getUnits());
+        }
+
         System.out.println("Policy: SimpleSignalRuntimePolicy");
     }
 
@@ -50,11 +59,11 @@ public class SimpleSignalRuntimePolicy implements RuntimePolicy {
         BoltRuntimeUnit ret = null;
         long max = 0;
 
-        for(BoltRuntimeUnit bolt : availableBolts) {
-            long numInQ = bolt.getNumInQ();
+        for (BoltRuntimeUnitGroup group : groups) {
+            long numInQ = group.getTotalNumInQ();
             if (numInQ > max) {
                 max = numInQ;
-                ret = bolt;
+                ret = group.getUnitWithMaxNumInQ();
             }
         }
 

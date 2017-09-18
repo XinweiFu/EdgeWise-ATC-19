@@ -37,7 +37,7 @@
   (:import [org.apache.storm.cluster ClusterStateContext DaemonType])
   (:import [org.apache.storm.grouping LoadAwareCustomStreamGrouping LoadAwareShuffleGrouping LoadMapping ShuffleGrouping])
   (:import [java.util.concurrent ConcurrentLinkedQueue]
-           (lee.cs.vt.fog.runtime ExecutorCallback ExecutorCallback$CallbackProvider ExecutorCallback$ExecutorType BoltReceiveDisruptorQueue))
+           (lee.cs.vt.fog.runtime.misc ExecutorCallback ExecutorCallback$CallbackProvider ExecutorCallback$ExecutorType BoltReceiveDisruptorQueue))
   (:require [org.apache.storm [thrift :as thrift]
              [cluster :as cluster] [disruptor :as disruptor] [stats :as stats]])
   (:require [org.apache.storm.daemon [task :as task]])
@@ -757,6 +757,7 @@
                      "all"  (reify ExecutorCallback
                                (getType [this] ExecutorCallback$ExecutorType/bolt)
                                (getExecutorId [this] (:executor-id executor-data))
+                               (getComponentId [this] (:component-id executor-data))
                                (run [this]
                                  ;;(log-message "consume-batch")
                                  (disruptor/consume-batch (:receive-queue executor-data) event-handler)))
@@ -764,6 +765,7 @@
                      "half" (reify ExecutorCallback
                                (getType [this] ExecutorCallback$ExecutorType/bolt)
                                (getExecutorId [this] (:executor-id executor-data))
+                               (getComponentId [this] (:component-id executor-data))
                                (run [this]
                                  ;;(log-message "consume-half-batch")
                                  (disruptor/consume-half-batch (:receive-queue executor-data) event-handler)))
@@ -771,6 +773,7 @@
                      "constant" (reify ExecutorCallback
                                   (getType [this] ExecutorCallback$ExecutorType/bolt)
                                   (getExecutorId [this] (:executor-id executor-data))
+                                  (getComponentId [this] (:component-id executor-data))
                                   (run [this]
                                     ;;(log-message "consume-constant-batch")
                                     (disruptor/consume-constant-batch (:receive-queue executor-data) constant event-handler)))
@@ -778,6 +781,7 @@
                      (reify ExecutorCallback
                        (getType [this] ExecutorCallback$ExecutorType/bolt)
                        (getExecutorId [this] (:executor-id executor-data))
+                       (getComponentId [this] (:component-id executor-data))
                        (run [this]
                          ;;(log-message "consume-batch")
                          (disruptor/consume-batch (:receive-queue executor-data) event-handler)))

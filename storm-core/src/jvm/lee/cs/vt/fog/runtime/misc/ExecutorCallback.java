@@ -1,9 +1,10 @@
-package lee.cs.vt.fog.runtime;
+package lee.cs.vt.fog.runtime.misc;
 
 public interface ExecutorCallback {
     public Object run();
     public ExecutorType getType();
     public Object getExecutorId();
+    public String getComponentId();
 
     public enum ExecutorType {
         spout,

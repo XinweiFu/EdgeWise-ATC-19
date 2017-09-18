@@ -1,4 +1,6 @@
-package lee.cs.vt.fog.runtime;
+package lee.cs.vt.fog.runtime.policy;
+
+import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
 
 public interface RuntimePolicy {
     public BoltRuntimeUnit getUnitAndSet();

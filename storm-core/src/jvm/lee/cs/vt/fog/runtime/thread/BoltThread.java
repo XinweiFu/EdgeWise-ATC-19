@@ -1,6 +1,9 @@
-package lee.cs.vt.fog.runtime;
+package lee.cs.vt.fog.runtime.thread;
 
-public class BoltThread extends FogRuntimeThread{
+import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
+import lee.cs.vt.fog.runtime.policy.RuntimePolicy;
+
+public class BoltThread extends FogRuntimeThread {
     private final RuntimePolicy policy;
 
     public BoltThread(RuntimePolicy policy) {

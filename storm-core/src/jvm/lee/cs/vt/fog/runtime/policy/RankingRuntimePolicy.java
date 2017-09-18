@@ -1,10 +1,15 @@
-package lee.cs.vt.fog.runtime;
+package lee.cs.vt.fog.runtime.policy;
+
+import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
 
 import java.util.Comparator;
 import java.util.PriorityQueue;
 import java.util.Set;
 
-public class RankingRuntimePolicy implements RuntimePolicy {
+// Deprecated for adaptive instances
+
+public class RankingRuntimePolicy {
+        /*implements RuntimePolicy {
     private final Set<BoltRuntimeUnit> bolts;
     private final int numThreadPoll;
     private final Comparator<Pair> comparator = new Comparator<Pair>(){
@@ -79,4 +84,5 @@ public class RankingRuntimePolicy implements RuntimePolicy {
             return num;
         }
     }
+    */
 }
