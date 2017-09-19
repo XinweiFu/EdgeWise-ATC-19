@@ -117,7 +117,7 @@ public class GroupSignalRuntimePolicy implements RuntimePolicy {
         BoltRuntimeUnit ret = null;
         long max = 0;
 
-        for (BoltRuntimeUnitGroup group : groups) {
+        for (BoltRuntimeUnitGroup group : availableGroups) {
             long numInQ = group.getTotalNumInQ();
             if (numInQ > max) {
                 max = numInQ;

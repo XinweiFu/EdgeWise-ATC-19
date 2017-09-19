@@ -64,9 +64,7 @@ public class FogRuntime {
 
     private void print() {
         System.out.println("Fog Runtime Print begins:");
-
-
-
+        policy.print();
         System.out.println("Fog Runtime Print ends");
     }
 }
