@@ -29,7 +29,18 @@ public class SingleBoltRuntimeUnitGroup implements BoltRuntimeUnitGroup{
     }
 
     @Override
+    public void setAvailable(BoltRuntimeUnit unit) {
+
+    }
+
+    @Override
+    public void setUnavailable(BoltRuntimeUnit unit) {
+
+    }
+
+    @Override
     public void print(){
-        System.out.println("SingleBoltRuntimeUnitGroup: " + unit.getComponentId());
+        System.out.println("SingleBoltRuntimeUnitGroup:");
+        unit.print();
     }
 }

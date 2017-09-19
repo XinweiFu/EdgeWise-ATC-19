@@ -5,15 +5,13 @@ import java.util.Set;
 
 public class AdaptBoltRuntimeUnitGroup implements BoltRuntimeUnitGroup{
     private final Set<BoltRuntimeUnit> boltUnits = new HashSet<BoltRuntimeUnit>();
+    private final Set<BoltRuntimeUnit> availableBoltUnits = new HashSet<BoltRuntimeUnit>();
 
     private BoltRuntimeUnit unitWithMaxNumInQ;
 
     public AdaptBoltRuntimeUnitGroup(Set<BoltRuntimeUnit> boltUnits) {
         this.boltUnits.addAll(boltUnits);
-    }
-
-    public void add(BoltRuntimeUnit unit) {
-        boltUnits.add(unit);
+        this.availableBoltUnits.addAll(boltUnits);
     }
 
     @Override
@@ -21,7 +19,7 @@ public class AdaptBoltRuntimeUnitGroup implements BoltRuntimeUnitGroup{
         long totalNum = 0;
         long maxNum = 0;
 
-        for (BoltRuntimeUnit boltUnit : boltUnits) {
+        for (BoltRuntimeUnit boltUnit : availableBoltUnits) {
             long num = boltUnit.getNumInQ();
 
             totalNum += num;
@@ -47,8 +45,21 @@ public class AdaptBoltRuntimeUnitGroup implements BoltRuntimeUnitGroup{
     }
 
     @Override
+    public void setAvailable(BoltRuntimeUnit unit) {
+        availableBoltUnits.add(unit);
+    }
+
+    @Override
+    public void setUnavailable(BoltRuntimeUnit unit) {
+        availableBoltUnits.remove(unit);
+    }
+
+    @Override
     public void print(){
-        System.out.println("SingleBoltRuntimeUnitGroup: " + boltUnits.iterator().next().getComponentId());
+        System.out.println("AdaptBoltRuntimeUnitGroup:");
+        for (BoltRuntimeUnit boltUnit : boltUnits) {
+            boltUnit.print();
+        }
     }
 }
 

@@ -26,4 +26,8 @@ public class BoltRuntimeUnit extends RuntimeUnit{
         DisruptorQueue.QueueMetrics m = queue.getMetrics();
         return m.population();
     }
+
+    public void print() {
+        System.out.println("BoltRuntimeUnit componentId:" + componentId + " queue:" + queue.getName());
+    }
 }
