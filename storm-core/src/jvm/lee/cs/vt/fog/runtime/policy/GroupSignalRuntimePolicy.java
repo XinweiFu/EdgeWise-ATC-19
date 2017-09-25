@@ -15,7 +15,6 @@ import java.util.concurrent.locks.Lock;
 public class GroupSignalRuntimePolicy implements RuntimePolicy {
 
     private final Set<BoltRuntimeUnitGroup> groups;
-    private final Set<BoltRuntimeUnitGroup> availableGroups;
 
     private final Map<BoltRuntimeUnit, BoltRuntimeUnitGroup> unit2GroupMap;
 
@@ -68,8 +67,6 @@ public class GroupSignalRuntimePolicy implements RuntimePolicy {
             }
         }
 
-        this.availableGroups = new HashSet<BoltRuntimeUnitGroup>(this.groups);
-
         System.out.println("Policy: GroupSignalRuntimePolicy");
     }
 
@@ -83,7 +80,6 @@ public class GroupSignalRuntimePolicy implements RuntimePolicy {
             }
 
             BoltRuntimeUnitGroup group = unit2GroupMap.get(ret);
-            availableGroups.remove(group);
             group.setUnavailable(ret);
 
         } catch (InterruptedException e) {
@@ -99,7 +95,6 @@ public class GroupSignalRuntimePolicy implements RuntimePolicy {
     public void unitReset(BoltRuntimeUnit unit) {
         lock.lock();
         BoltRuntimeUnitGroup group = unit2GroupMap.get(unit);
-        availableGroups.add(group);
         group.setAvailable(unit);
         lock.unlock();
     }
@@ -117,7 +112,7 @@ public class GroupSignalRuntimePolicy implements RuntimePolicy {
         BoltRuntimeUnit ret = null;
         long max = 0;
 
-        for (BoltRuntimeUnitGroup group : availableGroups) {
+        for (BoltRuntimeUnitGroup group : groups) {
             long numInQ = group.getTotalNumInQ();
             if (numInQ > max) {
                 max = numInQ;
