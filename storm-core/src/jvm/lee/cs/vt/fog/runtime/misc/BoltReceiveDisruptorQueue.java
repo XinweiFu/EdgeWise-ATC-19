@@ -16,8 +16,6 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     private boolean isSpout = false;
 
-    private boolean isRunning = false;
-
     public BoltReceiveDisruptorQueue(String queueName,
                                      ProducerType type,
                                      int size,
@@ -77,14 +75,6 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     public void setSpout() {
         isSpout = true;
-    }
-
-    public void setIsRunning() {
-        isRunning = true;
-    }
-
-    public void resetIsRunning() {
-        isRunning = false;
     }
 }
 
