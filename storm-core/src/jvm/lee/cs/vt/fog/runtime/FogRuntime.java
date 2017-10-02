@@ -67,6 +67,9 @@ public class FogRuntime {
                 case "signal-group":
                     policy = new GroupSignalRuntimePolicy(list, map);
                     break;
+                case "signal-fair":
+                    policy = new FairSignalRuntimePolicy(list, map, (long) storm_conf.get("waited_t"));
+                    break;
                 default:
                     policy = new SimpleSignalRuntimePolicy(list, map);
                     break;
@@ -147,7 +150,7 @@ public class FogRuntime {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            
+
             System.out.println("Fog Runtime Debug finished.");
         }
 

@@ -36,7 +36,7 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     public Long getWaitedTime() {
         Long curr = System.nanoTime();
         if (lastCompletedTime == 0) {
-            return null;
+            return lastCompletedTime;
         } else {
             Long waitedTime = curr - lastCompletedTime;
             assert(waitedTime >= 0);
