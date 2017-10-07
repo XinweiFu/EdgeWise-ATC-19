@@ -70,6 +70,9 @@ public class FogRuntime {
                 case "signal-fair":
                     policy = new FairSignalRuntimePolicy(list, map, (long) storm_conf.get("waited_t"));
                     break;
+                case "signal-wait":
+                    policy = new WaitSignalRuntimePolicy(list, map);
+                    break;
                 default:
                     policy = new SimpleSignalRuntimePolicy(list, map);
                     break;

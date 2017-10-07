@@ -64,7 +64,6 @@ public class BoltThread extends FogRuntimeThread {
                 consumeTimeMap.put(runtimeUnit, consumeTimeMap.get(runtimeUnit).longValue() + consumeTime);
             }
 
-            runtimeUnit.setCompletedTime();
             policy.unitReset(runtimeUnit);
         }
     }

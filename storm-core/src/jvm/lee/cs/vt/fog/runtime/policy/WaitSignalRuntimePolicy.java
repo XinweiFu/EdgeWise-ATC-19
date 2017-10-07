@@ -12,9 +12,7 @@ import java.util.Set;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 
-public class FairSignalRuntimePolicy implements RuntimePolicy {
-
-    private final long threshold;
+public class WaitSignalRuntimePolicy implements RuntimePolicy {
 
     private final Set<BoltRuntimeUnit> bolts;
     private final Set<BoltRuntimeUnit> availableBolts;
@@ -22,9 +20,8 @@ public class FairSignalRuntimePolicy implements RuntimePolicy {
     private final Lock lock = FogRuntime.LOCK;
     private final Condition condition = FogRuntime.CONDITION;
 
-    public FairSignalRuntimePolicy(List<ExecutorCallback.CallbackProvider> list,
-                                   Map<Object, BoltReceiveDisruptorQueue> map,
-                                   long threshold) {
+    public WaitSignalRuntimePolicy(List<ExecutorCallback.CallbackProvider> list,
+                                   Map<Object, BoltReceiveDisruptorQueue> map) {
         this.bolts = new HashSet<BoltRuntimeUnit>();
 
         for (ExecutorCallback.CallbackProvider provider : list) {
@@ -51,9 +48,7 @@ public class FairSignalRuntimePolicy implements RuntimePolicy {
 
         this.availableBolts = new HashSet<BoltRuntimeUnit>(bolts);
 
-        this.threshold = threshold;
-
-        System.out.println("Policy: FairSignalRuntimePolicy");
+        System.out.println("Policy: WaitSignalRuntimePolicy");
     }
 
     @Override
@@ -89,24 +84,17 @@ public class FairSignalRuntimePolicy implements RuntimePolicy {
 
     @Override
     public void print() {
-        System.out.println("Policy: FairSignalRuntimePolicy");
+        System.out.println("Policy: WaitSignalRuntimePolicy");
         for (BoltRuntimeUnit bolt : bolts) {
             bolt.print();
         }
     }
 
     private BoltRuntimeUnit getUnit() {
-        BoltRuntimeUnit ret_pending = null, ret_waitted = null;
-        long max_pending = 0, max_waited = 0;
-
+        BoltRuntimeUnit ret_waitted = null;
+        long max_waited = 0;
 
         for (BoltRuntimeUnit bolt : availableBolts) {
-            long numInQ = bolt.getNumInQ();
-            if (numInQ > max_pending) {
-                max_pending = numInQ;
-                ret_pending = bolt;
-            }
-
             long  waited_time = bolt.getWaitedTime();
             if (waited_time > max_waited) {
                 max_waited = waited_time;
@@ -114,9 +102,6 @@ public class FairSignalRuntimePolicy implements RuntimePolicy {
             }
         }
 
-        if (max_waited > threshold)
-            return ret_waitted;
-        else
-            return ret_pending;
+        return ret_waitted;
     }
 }

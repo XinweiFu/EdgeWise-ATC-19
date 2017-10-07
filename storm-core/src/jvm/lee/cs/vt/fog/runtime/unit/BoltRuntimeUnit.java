@@ -8,8 +8,6 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     private final String componentId;
     private final BoltReceiveDisruptorQueue queue;
 
-    private Long lastCompletedTime = new Long(0);
-
     public BoltRuntimeUnit(String componentId,
                            BoltReceiveDisruptorQueue queue,
                            ExecutorCallback callback) {
@@ -34,18 +32,15 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     }
 
     public Long getWaitedTime() {
-        Long curr = System.nanoTime();
-        if (lastCompletedTime == 0) {
-            return lastCompletedTime;
-        } else {
-            Long waitedTime = curr - lastCompletedTime;
-            assert(waitedTime >= 0);
-            return waitedTime;
-        }
+        return queue.getWaitedTime();
     }
 
-    public void setCompletedTime() {
-        lastCompletedTime = System.nanoTime();
+    public void setReadyTime() {
+        queue.setReadyTime();
+    }
+
+    public void resetReadyTime () {
+        queue.resetReadyTime();
     }
 
     public long getNumInQ() {
