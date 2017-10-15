@@ -96,9 +96,10 @@ public class FairSignalRuntimePolicy implements RuntimePolicy {
     }
 
     private BoltRuntimeUnit getUnit() {
-        BoltRuntimeUnit ret_pending = null, ret_waitted = null;
-        long max_pending = 0, max_waited = 0;
-
+        BoltRuntimeUnit ret_pending = null, ret_waitted = null, ret = null;
+        long max_pending = 0;
+        int max_waited = 0;
+        long max_waited_pending = 0;
 
         for (BoltRuntimeUnit bolt : availableBolts) {
             long numInQ = bolt.getNumInQ();
@@ -107,16 +108,27 @@ public class FairSignalRuntimePolicy implements RuntimePolicy {
                 ret_pending = bolt;
             }
 
-            long  waited_time = bolt.getWaitedTime();
-            if (waited_time > max_waited) {
-                max_waited = waited_time;
-                ret_waitted = bolt;
+            if (numInQ > 0) {
+                int waited_count = bolt.getWaitedCount();
+                if (waited_count > max_waited
+                        || (waited_count == max_waited && numInQ > max_waited_pending)) {
+                    max_waited = waited_count;
+                    max_waited_pending = numInQ;
+                    ret_waitted = bolt;
+                }
             }
+
+            bolt.incWaitedCount();
         }
 
         if (max_waited > threshold)
-            return ret_waitted;
+            ret = ret_waitted;
         else
-            return ret_pending;
+            ret = ret_pending;
+
+        if (ret != null)
+            ret.resetWaitedCount();
+
+        return ret;
     }
 }

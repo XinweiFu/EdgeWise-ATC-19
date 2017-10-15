@@ -8,6 +8,8 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     private final String componentId;
     private final BoltReceiveDisruptorQueue queue;
 
+    private int waitedCount = 0;
+
     public BoltRuntimeUnit(String componentId,
                            BoltReceiveDisruptorQueue queue,
                            ExecutorCallback callback) {
@@ -41,6 +43,18 @@ public class BoltRuntimeUnit extends RuntimeUnit{
 
     public void resetReadyTime () {
         queue.resetReadyTime();
+    }
+
+    public int getWaitedCount() {
+        return waitedCount;
+    }
+
+    public void incWaitedCount() {
+        waitedCount++;
+    }
+
+    public void resetWaitedCount() {
+        waitedCount = 0;
     }
 
     public long getNumInQ() {
