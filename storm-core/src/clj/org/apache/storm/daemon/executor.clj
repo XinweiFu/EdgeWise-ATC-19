@@ -37,7 +37,8 @@
   (:import [org.apache.storm.cluster ClusterStateContext DaemonType])
   (:import [org.apache.storm.grouping LoadAwareCustomStreamGrouping LoadAwareShuffleGrouping LoadMapping ShuffleGrouping])
   (:import [java.util.concurrent ConcurrentLinkedQueue]
-           (lee.cs.vt.fog.runtime.misc ExecutorCallback ExecutorCallback$CallbackProvider ExecutorCallback$ExecutorType BoltReceiveDisruptorQueue))
+           (lee.cs.vt.fog.runtime.misc ExecutorCallback ExecutorCallback$CallbackProvider ExecutorCallback$ExecutorType BoltReceiveDisruptorQueue)
+           (lee.cs.vt.fog.runtime FogRuntime))
   (:require [org.apache.storm [thrift :as thrift]
              [cluster :as cluster] [disruptor :as disruptor] [stats :as stats]])
   (:require [org.apache.storm.daemon [task :as task]])
@@ -651,9 +652,12 @@
                  (if (and (not (.isFull transfer-queue))
                           (not throttle-on)
                           (not reached-max-spout-pending))
-                   (fast-list-iter [^ISpout spout spouts] (.nextTuple spout)))
-                 (if (.isFull transfer-queue) (fast-list-iter [^ISpout spout spouts] (.ack spout nil)))
-                 (if throttle-on (fast-list-iter [^ISpout spout spouts] (.fail spout nil)))
+                   (do
+                     (.backpressure_off FogRuntime/bpCounter)
+                     (fast-list-iter [^ISpout spout spouts] (.nextTuple spout)))
+                   (.backpressure_on FogRuntime/bpCounter))
+                 ;;(if (.isFull transfer-queue) (fast-list-iter [^ISpout spout spouts] (.ack spout nil)))
+                 ;;(if throttle-on (fast-list-iter [^ISpout spout spouts] (.fail spout nil)))
                  )
                ; deactivated
                (do

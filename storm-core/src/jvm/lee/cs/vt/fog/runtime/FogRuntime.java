@@ -1,5 +1,6 @@
 package lee.cs.vt.fog.runtime;
 
+import lee.cs.vt.fog.runtime.misc.BPCounter;
 import lee.cs.vt.fog.runtime.misc.BoltReceiveDisruptorQueue;
 import lee.cs.vt.fog.runtime.misc.ExecutorCallback;
 import lee.cs.vt.fog.runtime.policy.*;
@@ -19,6 +20,7 @@ public class FogRuntime {
 
     public static final Lock LOCK = new ReentrantLock();;
     public static final Condition CONDITION = LOCK.newCondition();
+    public static final BPCounter bpCounter = new BPCounter();
 
     private final Set<BoltThread> boltThreads;
     private final RuntimePolicy policy;
@@ -156,6 +158,8 @@ public class FogRuntime {
 
             System.out.println("Fog Runtime Debug finished.");
         }
+
+        bpCounter.writeToDist(debug_path + "/" + "bp_info_" + storm_id);
 
         for (BoltThread boltThread : boltThreads) {
             boltThread.stopAndWait();
