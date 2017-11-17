@@ -36,7 +36,8 @@
   (:import [org.apache.storm Config Constants])
   (:import [org.apache.storm.cluster ClusterStateContext DaemonType])
   (:import [org.apache.storm.grouping LoadAwareCustomStreamGrouping LoadAwareShuffleGrouping LoadMapping ShuffleGrouping])
-  (:import [java.util.concurrent ConcurrentLinkedQueue])
+  (:import [java.util.concurrent ConcurrentLinkedQueue]
+           (lee.cs.vt.fog.runtime BPManager))
   (:require [org.apache.storm [thrift :as thrift]
              [cluster :as cluster] [disruptor :as disruptor] [stats :as stats]])
   (:require [org.apache.storm.daemon [task :as task]])
@@ -541,7 +542,8 @@
         has-ackers? (has-ackers? storm-conf)
         has-eventloggers? (has-eventloggers? storm-conf)
         emitted-count (MutableLong. 0)
-        empty-emit-streak (MutableLong. 0)]
+        empty-emit-streak (MutableLong. 0)
+        bp-manager (BPManager. spouts)]
    
     [(async-loop
       (fn []
@@ -641,7 +643,10 @@
                 (if (and (not (.isFull transfer-queue))
                       (not throttle-on)
                       (not reached-max-spout-pending))
-                  (fast-list-iter [^ISpout spout spouts] (.nextTuple spout))))
+                  (do
+                    (.backpressure_off bp-manager)
+                    (fast-list-iter [^ISpout spout spouts] (.nextTuple spout)))
+                  (.backpressure_on bp-manager)))
               ; deactivated
               (do
                 (when @last-active
