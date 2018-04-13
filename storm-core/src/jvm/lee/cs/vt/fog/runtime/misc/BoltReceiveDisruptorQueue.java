@@ -16,8 +16,6 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     private boolean isSpout = false;
 
-    private Long readyTime = new Long(0);
-
     public BoltReceiveDisruptorQueue(String queueName,
                                      ProducerType type,
                                      int size,
@@ -42,8 +40,6 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
         if (!isSpout) {
             lock.lock();
-            if (readyTime == 0)
-                setReadyTime();
             condition.signalAll();
             lock.unlock();
         }
@@ -71,8 +67,6 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
             if (!isSpout) {
                 lock.lock();
-                if (readyTime == 0)
-                    setReadyTime();
                 condition.signalAll();
                 lock.unlock();
             }
@@ -81,25 +75,6 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     public void setSpout() {
         isSpout = true;
-    }
-
-    public Long getWaitedTime() {
-        Long curr = System.nanoTime();
-        if (readyTime == 0) {
-            return readyTime;
-        } else {
-            Long waitedTime = curr - readyTime;
-            assert(waitedTime >= 0);
-            return waitedTime;
-        }
-    }
-
-    public void setReadyTime() {
-        readyTime = System.nanoTime();
-    }
-
-    public void resetReadyTime() {
-        readyTime = 0L;
     }
 }
 

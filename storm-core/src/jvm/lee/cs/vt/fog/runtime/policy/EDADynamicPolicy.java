@@ -1,9 +1,9 @@
 package lee.cs.vt.fog.runtime.policy;
 
-import lee.cs.vt.fog.runtime.FogRuntime;
 import lee.cs.vt.fog.runtime.misc.BoltReceiveDisruptorQueue;
 import lee.cs.vt.fog.runtime.misc.ExecutorCallback;
 import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
+import lee.cs.vt.fog.runtime.FogRuntime;
 
 import java.util.HashSet;
 import java.util.List;
@@ -12,9 +12,7 @@ import java.util.Set;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 
-public class FairSignalRuntimePolicy implements RuntimePolicy {
-
-    private final long threshold;
+public class EDADynamicPolicy implements RuntimePolicy {
 
     private final Set<BoltRuntimeUnit> bolts;
     private final Set<BoltRuntimeUnit> availableBolts;
@@ -22,9 +20,8 @@ public class FairSignalRuntimePolicy implements RuntimePolicy {
     private final Lock lock = FogRuntime.LOCK;
     private final Condition condition = FogRuntime.CONDITION;
 
-    public FairSignalRuntimePolicy(List<ExecutorCallback.CallbackProvider> list,
-                                   Map<Object, BoltReceiveDisruptorQueue> map,
-                                   long threshold) {
+    public EDADynamicPolicy(List<ExecutorCallback.CallbackProvider> list,
+                            Map<Object, BoltReceiveDisruptorQueue> map) {
         this.bolts = new HashSet<BoltRuntimeUnit>();
 
         for (ExecutorCallback.CallbackProvider provider : list) {
@@ -51,9 +48,7 @@ public class FairSignalRuntimePolicy implements RuntimePolicy {
 
         this.availableBolts = new HashSet<BoltRuntimeUnit>(bolts);
 
-        this.threshold = threshold;
-
-        System.out.println("Policy: FairSignalRuntimePolicy");
+        System.out.println("Policy: EDADynamicPolicy");
     }
 
     @Override
@@ -79,55 +74,29 @@ public class FairSignalRuntimePolicy implements RuntimePolicy {
     @Override
     public void unitReset(BoltRuntimeUnit unit) {
         lock.lock();
-        if (unit.getNumInQ() == 0)
-            unit.resetReadyTime();
-        else
-            unit.setReadyTime();
         availableBolts.add(unit);
         lock.unlock();
     }
 
     @Override
     public void print() {
-        System.out.println("Policy: FairSignalRuntimePolicy");
+        System.out.println("Policy: EDADynamicPolicy");
         for (BoltRuntimeUnit bolt : bolts) {
             bolt.print();
         }
     }
 
     private BoltRuntimeUnit getUnit() {
-        BoltRuntimeUnit ret_pending = null, ret_waitted = null, ret = null;
-        long max_pending = 0;
-        int max_waited = 0;
-        long max_waited_pending = 0;
+        BoltRuntimeUnit ret = null;
+        long max = 0;
 
         for (BoltRuntimeUnit bolt : availableBolts) {
             long numInQ = bolt.getNumInQ();
-            if (numInQ > max_pending) {
-                max_pending = numInQ;
-                ret_pending = bolt;
+            if (numInQ > max) {
+                max = numInQ;
+                ret = bolt;
             }
-
-            if (numInQ > 0) {
-                int waited_count = bolt.getWaitedCount();
-                if (waited_count > max_waited
-                        || (waited_count == max_waited && numInQ > max_waited_pending)) {
-                    max_waited = waited_count;
-                    max_waited_pending = numInQ;
-                    ret_waitted = bolt;
-                }
-            }
-
-            bolt.incWaitedCount();
         }
-
-        if (max_waited > threshold)
-            ret = ret_waitted;
-        else
-            ret = ret_pending;
-
-        if (ret != null)
-            ret.resetWaitedCount();
 
         return ret;
     }
