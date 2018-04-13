@@ -36,6 +36,38 @@ public class BoltRuntimeUnit extends RuntimeUnit{
         return m.population();
     }
 
+    public void setWaitStartTime() {
+        queue.setWaitStartTime();
+    }
+
+    public void addWaitTime() {
+        queue.addWaitTime();
+    }
+
+    public void setEmptyStartTime() {
+        queue.setEmptyStartTime();
+    }
+
+    public String printAverageWaitTime() {
+        long totalTupleConsumed = queue.getTotalTupleConsumed();
+        long totalWaitTime = queue.getTotalWaitTime();
+        double averageWaitTime = totalWaitTime / (double) totalTupleConsumed;
+
+        String ret = "";
+        ret += componentId + ",";
+        ret += totalTupleConsumed + ",";
+        ret += totalWaitTime + ",";
+        ret += averageWaitTime + "\n";
+        return ret;
+    }
+
+    public String printTotalEmptyTime() {
+        String ret = "";
+        ret += componentId + ",";
+        ret += queue.getTotalEmptyTime() + "\n";
+        return ret;
+    }
+
     public void print() {
         System.out.println("BoltRuntimeUnit componentId:" + componentId + " queue:" + queue.getName());
     }

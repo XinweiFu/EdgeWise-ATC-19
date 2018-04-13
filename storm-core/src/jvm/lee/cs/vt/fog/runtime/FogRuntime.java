@@ -18,6 +18,9 @@ public class FogRuntime {
     public static final Lock LOCK = new ReentrantLock();;
     public static final Condition CONDITION = LOCK.newCondition();
 
+    public static boolean getWaitTime = false;
+    public static boolean getEmptyTime = false;
+
     private final Set<BoltThread> boltThreads;
     private final RuntimePolicy policy;
 
@@ -29,6 +32,16 @@ public class FogRuntime {
                        Map storm_conf) {
         final int numThreadPoll = 4;
         this.storm_id = storm_id;
+
+        Object getWaitTime = storm_conf.get("get_wait_time");
+        if (getWaitTime != null) {
+            FogRuntime.getWaitTime = (boolean) getWaitTime;
+        }
+
+        Object getEmptyTime = storm_conf.get("get_empty_time");
+        if (getEmptyTime != null) {
+            FogRuntime.getEmptyTime = (boolean) getEmptyTime;
+        }
 
         String policyString = (String) storm_conf.get("policy");
 
@@ -63,6 +76,14 @@ public class FogRuntime {
 
     public void stop() throws InterruptedException {
         System.out.println("Fog Runtime Stopping:");
+
+        if (getWaitTime) {
+            System.out.print(policy.printAverageWaitTime());
+        }
+
+        if (getEmptyTime) {
+            System.out.print(policy.printTotalEmptyTime());
+        }
 
         for (BoltThread boltThread : boltThreads) {
             boltThread.stopAndWait();
