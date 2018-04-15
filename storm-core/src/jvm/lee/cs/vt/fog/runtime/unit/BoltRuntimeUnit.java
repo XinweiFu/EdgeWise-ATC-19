@@ -55,6 +55,7 @@ public class BoltRuntimeUnit extends RuntimeUnit{
 
         String ret = "";
         ret += componentId + ",";
+        ret += queue.getName() + ",";
         ret += totalTupleConsumed + ",";
         ret += totalWaitTime + ",";
         ret += averageWaitTime + "\n";
@@ -62,9 +63,16 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     }
 
     public String printTotalEmptyTime() {
+        long totalTupleConsumed = queue.getTotalTupleConsumed();
+        long totalEmptyTime = queue.getTotalEmptyTime();
+        double averageEmptyTime = totalEmptyTime / (double) totalTupleConsumed;
+
         String ret = "";
         ret += componentId + ",";
-        ret += queue.getTotalEmptyTime() + "\n";
+        ret += queue.getName() + ",";
+        ret += totalTupleConsumed + ",";
+        ret += totalEmptyTime + ",";
+        ret += averageEmptyTime + "\n";
         return ret;
     }
 

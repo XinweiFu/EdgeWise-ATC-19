@@ -117,7 +117,8 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
                 } else {
                     handler.onEvent(o, curr, curr == cursor);
 
-                    if (FogRuntime.getWaitTime) {
+                    if (FogRuntime.getWaitTime ||
+                            FogRuntime.getEmptyTime) {
                         List list = (List) o;
                         totalTupleConsumed += list.size();
                     }
