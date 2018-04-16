@@ -59,8 +59,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * the ability to catch up to the producer by processing tuples in batches.
  */
 public class DisruptorQueue implements IStatefulObject {
-    private static final Logger LOG = LoggerFactory.getLogger(DisruptorQueue.class);    
-    private static final Object INTERRUPT = new Object();
+    protected static final Logger LOG = LoggerFactory.getLogger(DisruptorQueue.class);
+    protected static final Object INTERRUPT = new Object();
     private static final String PREFIX = "disruptor-";
     private static final FlusherPool FLUSHER = new FlusherPool();
     
@@ -379,21 +379,21 @@ public class DisruptorQueue implements IStatefulObject {
         }
     }
 
-    private final RingBuffer<AtomicReference<Object>> _buffer;
-    private final Sequence _consumer;
+    protected final RingBuffer<AtomicReference<Object>> _buffer;
+    protected final Sequence _consumer;
     private final SequenceBarrier _barrier;
     private final int _inputBatchSize;
     private final ConcurrentHashMap<Long, ThreadLocalInserter> _batchers = new ConcurrentHashMap<Long, ThreadLocalInserter>();
     private final Flusher _flusher;
-    private final QueueMetrics _metrics;
+    protected final QueueMetrics _metrics;
 
     private String _queueName = "";
-    private DisruptorBackpressureCallback _cb = null;
+    protected DisruptorBackpressureCallback _cb = null;
     private int _highWaterMark = 0;
-    private int _lowWaterMark = 0;
-    private boolean _enableBackpressure = false;
-    private final AtomicLong _overflowCount = new AtomicLong(0);
-    private volatile boolean _throttleOn = false;
+    protected int _lowWaterMark = 0;
+    protected boolean _enableBackpressure = false;
+    protected final AtomicLong _overflowCount = new AtomicLong(0);
+    protected volatile boolean _throttleOn = false;
 
     public DisruptorQueue(String queueName, ProducerType type, int size, long readTimeout, int inputBatchSize, long flushInterval) {
         this._queueName = PREFIX + queueName;
@@ -459,7 +459,7 @@ public class DisruptorQueue implements IStatefulObject {
         }
     }
 
-    private void consumeBatchToCursor(long cursor, EventHandler<Object> handler) {
+    protected void consumeBatchToCursor(long cursor, EventHandler<Object> handler) {
         for (long curr = _consumer.get() + 1; curr <= cursor; curr++) {
             try {
                 AtomicReference<Object> mo = _buffer.get(curr);
@@ -496,7 +496,7 @@ public class DisruptorQueue implements IStatefulObject {
         return Thread.currentThread().getId();
     }
 
-    private void publishDirectSingle(Object obj, boolean block) throws InsufficientCapacityException {
+    protected void publishDirectSingle(Object obj, boolean block) throws InsufficientCapacityException {
         long at;
         if (block) {
             at = _buffer.next();
@@ -509,7 +509,7 @@ public class DisruptorQueue implements IStatefulObject {
         _metrics.notifyArrivals(1);
     }
 
-    private void publishDirect(ArrayList<Object> objs, boolean block) throws InsufficientCapacityException {
+    protected void publishDirect(ArrayList<Object> objs, boolean block) throws InsufficientCapacityException {
         int size = objs.size();
         if (size > 0) {
             long end;

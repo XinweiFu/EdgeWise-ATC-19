@@ -16,7 +16,8 @@
 
 (ns org.apache.storm.disruptor
   (:import [org.apache.storm.utils DisruptorQueue WorkerBackpressureCallback DisruptorBackpressureCallback])
-  (:import [com.lmax.disruptor.dsl ProducerType])
+  (:import [com.lmax.disruptor.dsl ProducerType]
+           (lee.cs.vt.fog.runtime BoltReceiveDisruptorQueue))
   (:require [clojure [string :as str]])
   (:require [clojure [set :as set]])
   (:use [clojure walk])
@@ -31,6 +32,12 @@
   (DisruptorQueue. queue-name
                    (PRODUCER-TYPE producer-type) buffer-size
                    timeout batch-size batch-timeout))
+
+(defnk bolt-receive-disruptor-queue
+  [^String queue-name buffer-size timeout :producer-type :multi-threaded :batch-size 100 :batch-timeout 1]
+  (BoltReceiveDisruptorQueue. queue-name
+                              (PRODUCER-TYPE producer-type) buffer-size
+                              timeout batch-size batch-timeout))
 
 (defn clojure-handler
   [afn]

@@ -37,7 +37,7 @@
   (:import [org.apache.storm.cluster ClusterStateContext DaemonType])
   (:import [org.apache.storm.grouping LoadAwareCustomStreamGrouping LoadAwareShuffleGrouping LoadMapping ShuffleGrouping])
   (:import [java.util.concurrent ConcurrentLinkedQueue]
-           (lee.cs.vt.fog.runtime BPManager))
+           (lee.cs.vt.fog.runtime BPManager BoltReceiveDisruptorQueue))
   (:require [org.apache.storm [thrift :as thrift]
              [cluster :as cluster] [disruptor :as disruptor] [stats :as stats]])
   (:require [org.apache.storm.daemon [task :as task]])
@@ -537,7 +537,7 @@
                                       )))
                                 ;; TODO: on failure, emit tuple to failure stream
                                 ))))
-        receive-queue (:receive-queue executor-data)
+        ^BoltReceiveDisruptorQueue receive-queue (:receive-queue executor-data)
         event-handler (mk-task-receiver executor-data tuple-action-fn)
         has-ackers? (has-ackers? storm-conf)
         has-eventloggers? (has-eventloggers? storm-conf)
@@ -550,7 +550,10 @@
         ;; If topology was started in inactive state, don't call (.open spout) until it's activated first.
         (while (not @(:storm-active-atom executor-data))
           (Thread/sleep 100))
-        
+
+        (log-message "Set Spout Receive Queue")
+        (.setSpout receive-queue)
+
         (log-message "Opening spout " component-id ":" (keys task-datas))
         (builtin-metrics/register-spout-throttling-metrics (:spout-throttling-metrics executor-data) storm-conf (:user-context (first (vals task-datas))))
         (doseq [[task-id task-data] task-datas

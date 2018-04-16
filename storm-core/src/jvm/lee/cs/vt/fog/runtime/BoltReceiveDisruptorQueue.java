@@ -1,0 +1,131 @@
+package lee.cs.vt.fog.runtime;
+
+import com.lmax.disruptor.AlertException;
+import com.lmax.disruptor.EventHandler;
+import com.lmax.disruptor.InsufficientCapacityException;
+import com.lmax.disruptor.TimeoutException;
+import com.lmax.disruptor.dsl.ProducerType;
+import org.apache.storm.utils.DisruptorQueue;
+
+import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
+
+public class BoltReceiveDisruptorQueue extends DisruptorQueue {
+
+    private boolean isSpout = false;
+    private long waitStartTime = -1;
+    private long totalWaitTime = 0;
+
+    public BoltReceiveDisruptorQueue(String queueName,
+                                     ProducerType type,
+                                     int size,
+                                     long readTimeout,
+                                     int inputBatchSize,
+                                     long flushInterval) {
+        super(queueName, type, size, readTimeout, inputBatchSize, flushInterval);
+    }
+
+    @Override
+    protected void publishDirectSingle(Object obj, boolean block) throws InsufficientCapacityException {
+        long at;
+        if (block) {
+            at = _buffer.next();
+        } else {
+            at = _buffer.tryNext();
+        }
+
+        if (!isSpout && _metrics.population() == 1) {
+            setWaitStartTime();
+        }
+
+        AtomicReference<Object> m = _buffer.get(at);
+        m.set(obj);
+        _buffer.publish(at);
+        _metrics.notifyArrivals(1);
+    }
+
+    @Override
+    protected void publishDirect(ArrayList<Object> objs, boolean block) throws InsufficientCapacityException {
+        int size = objs.size();
+        if (size > 0) {
+            long end;
+            if (block) {
+                end = _buffer.next(size);
+            } else {
+                end = _buffer.tryNext(size);
+            }
+
+            if (!isSpout && _metrics.population() == size) {
+                setWaitStartTime();
+            }
+
+            long begin = end - (size - 1);
+            long at = begin;
+            for (Object obj: objs) {
+                AtomicReference<Object> m = _buffer.get(at);
+                m.set(obj);
+                at++;
+            }
+            _buffer.publish(begin, end);
+            _metrics.notifyArrivals(size);
+        }
+    }
+
+    @Override
+    protected void consumeBatchToCursor(long cursor, EventHandler<Object> handler) {
+        if (!isSpout) {
+            addWaitTime();
+        }
+
+        for (long curr = _consumer.get() + 1; curr <= cursor; curr++) {
+            try {
+                AtomicReference<Object> mo = _buffer.get(curr);
+                Object o = mo.getAndSet(null);
+                if (o == INTERRUPT) {
+                    throw new InterruptedException("Disruptor processing interrupted");
+                } else if (o == null) {
+                    LOG.error("NULL found in {}:{}", this.getName(), cursor);
+                } else {
+                    handler.onEvent(o, curr, curr == cursor);
+                    if (_enableBackpressure && _cb != null && (_metrics.writePos() - curr + _overflowCount.get()) <= _lowWaterMark) {
+                        try {
+                            if (_throttleOn) {
+                                _throttleOn = false;
+                                _cb.lowWaterMark();
+                            }
+                        } catch (Exception e) {
+                            throw new RuntimeException("Exception during calling lowWaterMark callback!");
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+        _consumer.set(cursor);
+
+        if (!isSpout && _metrics.population() > 0) {
+            setWaitStartTime();
+        }
+    }
+
+    public void setSpout() {
+        isSpout = true;
+    }
+
+    private void setWaitStartTime() {
+        waitStartTime = System.currentTimeMillis();
+    }
+
+    private void addWaitTime() {
+        if (waitStartTime == -1) {
+            return;
+        }
+        totalWaitTime = System.currentTimeMillis() - waitStartTime;
+        waitStartTime = -1;
+    }
+
+    public long getTotalWaitTime() {
+        return totalWaitTime;
+    }
+}

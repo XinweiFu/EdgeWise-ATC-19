@@ -207,7 +207,7 @@
 (defn- mk-receive-queue-map [storm-conf executors]
   (->> executors
        ;; TODO: this depends on the type of executor
-       (map (fn [e] [e (disruptor/disruptor-queue (str "receive-queue" e)
+       (map (fn [e] [e (disruptor/bolt-receive-disruptor-queue (str "receive-queue" e)
                                                   (storm-conf TOPOLOGY-EXECUTOR-RECEIVE-BUFFER-SIZE)
                                                   (storm-conf TOPOLOGY-DISRUPTOR-WAIT-TIMEOUT-MILLIS)
                                                   :batch-size (storm-conf TOPOLOGY-DISRUPTOR-BATCH-SIZE)
