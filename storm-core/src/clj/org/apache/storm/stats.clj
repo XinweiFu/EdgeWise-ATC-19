@@ -37,14 +37,15 @@
                         ^MultiCountStatAndMetric transferred
                         rate])
 
-(def BOLT-FIELDS [:acked :failed :process-latencies :executed :execute-latencies])
+(def BOLT-FIELDS [:acked :failed :process-latencies :executed :execute-latencies :wait-latencies])
 ;;acked and failed count individual tuples
 (defrecord BoltExecutorStats [^CommonStats common
                               ^MultiCountStatAndMetric acked
                               ^MultiCountStatAndMetric failed
                               ^MultiLatencyStatAndMetric process-latencies
                               ^MultiCountStatAndMetric executed
-                              ^MultiLatencyStatAndMetric execute-latencies])
+                              ^MultiLatencyStatAndMetric execute-latencies
+                              ^MultiCountStatAndMetric wait-latencies])
 
 (def SPOUT-FIELDS [:acked :failed :complete-latencies])
 ;;acked and failed count tuple completion
@@ -70,7 +71,8 @@
     (MultiCountStatAndMetric. NUM-STAT-BUCKETS)
     (MultiLatencyStatAndMetric. NUM-STAT-BUCKETS)
     (MultiCountStatAndMetric. NUM-STAT-BUCKETS)
-    (MultiLatencyStatAndMetric. NUM-STAT-BUCKETS)))
+    (MultiLatencyStatAndMetric. NUM-STAT-BUCKETS)
+    (MultiCountStatAndMetric. NUM-STAT-BUCKETS)))
 
 (defn mk-spout-stats
   [rate]
@@ -115,6 +117,10 @@
 (defmacro stats-complete-latencies
   [stats]
   `(:complete-latencies ~stats))
+
+(defmacro stats-wait-latencies
+  [stats]
+  `(:wait-latencies ~stats))
 
 (defn emitted-tuple!
   [stats stream]
@@ -251,7 +257,8 @@
    (window-set-converter (.get_failed stats) from-global-stream-id identity)
    (window-set-converter (.get_process_ms_avg stats) from-global-stream-id identity)
    (window-set-converter (.get_executed stats) from-global-stream-id identity)
-   (window-set-converter (.get_execute_ms_avg stats) from-global-stream-id identity)])
+   (window-set-converter (.get_execute_ms_avg stats) from-global-stream-id identity)
+   (window-set-converter (.get_executed stats) from-global-stream-id identity)])
 
 (defmethod clojurify-specific-stats SpoutStats [^SpoutStats stats]
   [(.get_acked stats)

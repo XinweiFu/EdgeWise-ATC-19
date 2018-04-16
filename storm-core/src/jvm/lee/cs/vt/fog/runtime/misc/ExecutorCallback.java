@@ -1,5 +1,7 @@
 package lee.cs.vt.fog.runtime.misc;
 
+import org.apache.storm.metric.internal.MultiCountStatAndMetric;
+
 public interface ExecutorCallback {
     public Object run();
     public ExecutorType getType();
@@ -13,5 +15,6 @@ public interface ExecutorCallback {
 
     public interface CallbackProvider {
         public ExecutorCallback getCallback();
+        public MultiCountStatAndMetric getWaitLatencyMetric();
     }
 }

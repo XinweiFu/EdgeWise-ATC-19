@@ -4,6 +4,7 @@ import lee.cs.vt.fog.runtime.misc.BoltReceiveDisruptorQueue;
 import lee.cs.vt.fog.runtime.misc.ExecutorCallback;
 import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
 import lee.cs.vt.fog.runtime.FogRuntime;
+import org.apache.storm.metric.internal.MultiCountStatAndMetric;
 
 import java.util.HashSet;
 import java.util.List;
@@ -35,6 +36,8 @@ public class EDADynamicPolicy implements RuntimePolicy {
             if (callback == null)
                 continue;
 
+            MultiCountStatAndMetric metric = provider.getWaitLatencyMetric();
+
             Object executorId = callback.getExecutorId();
             BoltReceiveDisruptorQueue queue = map.get(executorId);
             assert(queue != null);
@@ -44,7 +47,7 @@ public class EDADynamicPolicy implements RuntimePolicy {
             ExecutorCallback.ExecutorType type = callback.getType();
             switch (type) {
                 case bolt:
-                    this.bolts.add(new BoltRuntimeUnit(componentId, queue, callback));
+                    this.bolts.add(new BoltRuntimeUnit(componentId, queue, callback, metric));
                     break;
                 default:
                     // Never comes here

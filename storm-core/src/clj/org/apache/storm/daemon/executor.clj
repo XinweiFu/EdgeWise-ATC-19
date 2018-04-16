@@ -400,6 +400,9 @@
       (getCallback [this]
         (when (= (:type executor-data) :bolt)
           callback-or-thread))
+      (getWaitLatencyMetric [this]
+        (when (= (:type executor-data) :bolt)
+          (stats-wait-latencies (:stats executor-data))))
       RunningExecutor
       (render-stats [this]
         (stats/render-stats! (:stats executor-data)))
@@ -429,8 +432,7 @@
         (when @(:open-or-prepare-was-called? executor-data)
           (doseq [obj (map :object (vals task-datas))]
             (close-component executor-data obj)))
-        (log-message "Shut down executor " component-id ":" (pr-str executor-id)))
-        )))
+        (log-message "Shut down executor " component-id ":" (pr-str executor-id))))))
 
 (defn- fail-spout-msg [executor-data task-data msg-id tuple-info time-delta reason id debug?]
   (let [^ISpout spout (:object task-data)

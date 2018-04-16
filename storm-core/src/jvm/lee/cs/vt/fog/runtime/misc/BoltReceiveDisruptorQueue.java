@@ -149,12 +149,14 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         waitStartTime = System.currentTimeMillis();
     }
 
-    public void addWaitTime() {
+    public long addWaitTime() {
         if (waitStartTime == -1) {
-            return;
+            return -1;
         }
-        totalWaitTime += System.currentTimeMillis() - waitStartTime;
+        long delta = System.currentTimeMillis() - waitStartTime;
+        totalWaitTime += delta;
         waitStartTime = -1;
+        return delta;
     }
 
     public long getTotalWaitTime() {

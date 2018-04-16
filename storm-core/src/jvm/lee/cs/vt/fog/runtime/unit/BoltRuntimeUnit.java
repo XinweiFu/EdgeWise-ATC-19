@@ -2,20 +2,24 @@ package lee.cs.vt.fog.runtime.unit;
 
 import lee.cs.vt.fog.runtime.misc.BoltReceiveDisruptorQueue;
 import lee.cs.vt.fog.runtime.misc.ExecutorCallback;
+import org.apache.storm.metric.internal.MultiCountStatAndMetric;
 import org.apache.storm.utils.DisruptorQueue;
 
 public class BoltRuntimeUnit extends RuntimeUnit{
     private final String componentId;
     private final BoltReceiveDisruptorQueue queue;
+    private final MultiCountStatAndMetric waitLatencyMetric;
 
     public BoltRuntimeUnit(String componentId,
                            BoltReceiveDisruptorQueue queue,
-                           ExecutorCallback callback) {
+                           ExecutorCallback callback,
+                           MultiCountStatAndMetric waitLatencyMetric) {
         super(callback);
         assert(callback.getType() == ExecutorCallback.ExecutorType.bolt);
 
         this.componentId = componentId;
         this.queue = queue;
+        this.waitLatencyMetric = waitLatencyMetric;
     }
 
     public String getComponentId() {
@@ -41,7 +45,11 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     }
 
     public void addWaitTime() {
-        queue.addWaitTime();
+        long delta = queue.addWaitTime();
+        if (delta == -1) {
+            return;
+        }
+        waitLatencyMetric.incBy("default", delta);
     }
 
     public void setEmptyStartTime() {
