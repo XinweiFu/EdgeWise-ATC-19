@@ -1,10 +1,9 @@
 package lee.cs.vt.fog.runtime;
 
-import com.lmax.disruptor.AlertException;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.InsufficientCapacityException;
-import com.lmax.disruptor.TimeoutException;
 import com.lmax.disruptor.dsl.ProducerType;
+import org.apache.storm.metric.internal.MultiCountStatAndMetric;
 import org.apache.storm.utils.DisruptorQueue;
 
 import java.util.ArrayList;
@@ -13,6 +12,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     private boolean isSpout = false;
+    private MultiCountStatAndMetric waitLatencyMetric = null;
+
     private long waitStartTime = -1;
     private long totalWaitTime = 0;
 
@@ -113,6 +114,10 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         isSpout = true;
     }
 
+    public void setWaitLatMetric(MultiCountStatAndMetric waitLatencyMetric) {
+        this.waitLatencyMetric = waitLatencyMetric;
+    }
+
     private void setWaitStartTime() {
         waitStartTime = System.currentTimeMillis();
     }
@@ -121,8 +126,11 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         if (waitStartTime == -1) {
             return;
         }
-        totalWaitTime = System.currentTimeMillis() - waitStartTime;
+        long delta = System.currentTimeMillis() - waitStartTime;
+        totalWaitTime += delta;
         waitStartTime = -1;
+
+        waitLatencyMetric.incBy("default", delta);
     }
 
     public long getTotalWaitTime() {
