@@ -14,10 +14,6 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 
 public class EDADynamicPolicy implements RuntimePolicy {
-
-    private final boolean getWaitTime;
-    private final boolean getEmptyTime;
-
     private final Set<BoltRuntimeUnit> bolts;
     private final Set<BoltRuntimeUnit> availableBolts;
 
@@ -26,9 +22,6 @@ public class EDADynamicPolicy implements RuntimePolicy {
 
     public EDADynamicPolicy(List<ExecutorCallback.CallbackProvider> list,
                             Map<Object, BoltReceiveDisruptorQueue> map) {
-        this.getWaitTime = FogRuntime.getWaitTime;
-        this.getEmptyTime = FogRuntime.getEmptyTime;
-
         this.bolts = new HashSet<BoltRuntimeUnit>();
 
         for (ExecutorCallback.CallbackProvider provider : list) {
@@ -69,10 +62,6 @@ public class EDADynamicPolicy implements RuntimePolicy {
                 condition.await();
             }
 
-            if (getWaitTime) {
-                ret.addWaitTime();
-            }
-
             availableBolts.remove(ret);
 
         } catch (InterruptedException e) {
@@ -88,17 +77,6 @@ public class EDADynamicPolicy implements RuntimePolicy {
     public void unitReset(BoltRuntimeUnit unit) {
         lock.lock();
         availableBolts.add(unit);
-
-        if (getWaitTime &&
-                unit.getNumInQ() > 0) {
-            unit.setWaitStartTime();
-        }
-
-        if (getEmptyTime &&
-                unit.getNumInQ() == 0) {
-            unit.setEmptyStartTime();
-        }
-
         lock.unlock();
     }
 

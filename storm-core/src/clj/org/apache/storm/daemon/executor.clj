@@ -798,7 +798,11 @@
 
         ;; If topology was started in inactive state, don't call prepare bolt until it's activated first.
         ;; (while (not @(:storm-active-atom executor-data)) (Thread/sleep 100))
-        
+
+        (log-message "Set Bolt Metrics")
+        (.setWaitLatMetric (:receive-queue executor-data) (stats-wait-latencies (:stats executor-data)))
+        (.setEmptyTimeMetric (:receive-queue executor-data) (stats-empty-time (:stats executor-data)))
+
         (log-message "Preparing bolt " component-id ":" (keys task-datas))
         (doseq [[task-id task-data] task-datas
                 :let [^IBolt bolt-obj (:object task-data)

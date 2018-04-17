@@ -8,7 +8,6 @@ import org.apache.storm.utils.DisruptorQueue;
 public class BoltRuntimeUnit extends RuntimeUnit{
     private final String componentId;
     private final BoltReceiveDisruptorQueue queue;
-    private final MultiCountStatAndMetric waitLatencyMetric;
 
     public BoltRuntimeUnit(String componentId,
                            BoltReceiveDisruptorQueue queue,
@@ -19,7 +18,6 @@ public class BoltRuntimeUnit extends RuntimeUnit{
 
         this.componentId = componentId;
         this.queue = queue;
-        this.waitLatencyMetric = waitLatencyMetric;
     }
 
     public String getComponentId() {
@@ -38,22 +36,6 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     public long getNumInQ() {
         DisruptorQueue.QueueMetrics m = queue.getMetrics();
         return m.population();
-    }
-
-    public void setWaitStartTime() {
-        queue.setWaitStartTime();
-    }
-
-    public void addWaitTime() {
-        long delta = queue.addWaitTime();
-        if (delta == -1) {
-            return;
-        }
-        waitLatencyMetric.incBy("default", delta);
-    }
-
-    public void setEmptyStartTime() {
-        queue.setEmptyStartTime();
     }
 
     public String printAverageWaitTime() {

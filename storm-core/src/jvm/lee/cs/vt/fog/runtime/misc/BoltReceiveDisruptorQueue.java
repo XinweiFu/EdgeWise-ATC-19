@@ -4,6 +4,7 @@ import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.InsufficientCapacityException;
 import com.lmax.disruptor.dsl.ProducerType;
 import lee.cs.vt.fog.runtime.FogRuntime;
+import org.apache.storm.metric.internal.MultiCountStatAndMetric;
 import org.apache.storm.utils.DisruptorQueue;
 
 import java.util.ArrayList;
@@ -25,6 +26,9 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
     private long emptyStartTime = -1;
     private long totalEmptyTime = 0;
 
+    private MultiCountStatAndMetric waitLatencyMetric = null;
+    private MultiCountStatAndMetric emptyTimeMetric = null;
+
     public BoltReceiveDisruptorQueue(String queueName,
                                      ProducerType type,
                                      int size,
@@ -43,12 +47,14 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
             at = _buffer.tryNext();
         }
 
-        if (FogRuntime.getWaitTime &&
+        if (!isSpout &&
+                FogRuntime.getWaitTime &&
                 _metrics.population() == 1) {
             setWaitStartTime();
         }
 
-        if (FogRuntime.getEmptyTime &&
+        if (!isSpout &&
+                FogRuntime.getEmptyTime &&
                 _metrics.population() == 1) {
             addEmptyTime();
         }
@@ -76,12 +82,14 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
                 end = _buffer.tryNext(size);
             }
 
-            if (FogRuntime.getWaitTime &&
+            if (!isSpout &&
+                    FogRuntime.getWaitTime &&
                     _metrics.population() == size) {
                 setWaitStartTime();
             }
 
-            if (FogRuntime.getEmptyTime &&
+            if (!isSpout &&
+                    FogRuntime.getEmptyTime &&
                     _metrics.population() == size) {
                 addEmptyTime();
             }
@@ -106,6 +114,11 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     @Override
     protected void consumeBatchToCursor(long cursor, EventHandler<Object> handler) {
+        if (!isSpout &&
+                FogRuntime.getWaitTime) {
+            addWaitTime();
+        }
+
         for (long curr = _consumer.get() + 1; curr <= cursor; curr++) {
             try {
                 AtomicReference<Object> mo = _buffer.get(curr);
@@ -139,24 +152,45 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
             }
         }
         _consumer.set(cursor);
+
+        if (!isSpout &&
+                FogRuntime.getWaitTime &&
+                _metrics.population() > 0) {
+            setWaitStartTime();
+        }
+
+        if (!isSpout &&
+                FogRuntime.getEmptyTime &&
+                _metrics.population() == 0) {
+            setEmptyStartTime();
+        }
     }
 
     public void setSpout() {
         isSpout = true;
     }
 
-    public void setWaitStartTime() {
+    public void setWaitLatMetric(MultiCountStatAndMetric waitLatencyMetric) {
+        this.waitLatencyMetric = waitLatencyMetric;
+    }
+
+    public void setEmptyTimeMetric(MultiCountStatAndMetric emptyTimeMetric) {
+        this.emptyTimeMetric = emptyTimeMetric;
+    }
+
+    private void setWaitStartTime() {
         waitStartTime = System.currentTimeMillis();
     }
 
-    public long addWaitTime() {
+    private void addWaitTime() {
         if (waitStartTime == -1) {
-            return -1;
+            return;
         }
         long delta = System.currentTimeMillis() - waitStartTime;
         totalWaitTime += delta;
         waitStartTime = -1;
-        return delta;
+
+        waitLatencyMetric.incBy("default", delta);
     }
 
     public long getTotalWaitTime() {
@@ -167,7 +201,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         return totalTupleConsumed;
     }
 
-    public void setEmptyStartTime() {
+    private void setEmptyStartTime() {
         emptyStartTime = System.currentTimeMillis();
     }
 
@@ -175,8 +209,11 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         if (emptyStartTime == -1) {
             return;
         }
-        totalEmptyTime += System.currentTimeMillis() - emptyStartTime;
+        long delta = System.currentTimeMillis() - emptyStartTime;
+        totalEmptyTime += delta;
         emptyStartTime = -1;
+
+        emptyTimeMetric.incBy("default", delta);
     }
 
     public long getTotalEmptyTime() {
