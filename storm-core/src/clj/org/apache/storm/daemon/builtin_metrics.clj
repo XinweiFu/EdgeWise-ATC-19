@@ -31,7 +31,8 @@
                                ^MultiLatencyStatAndMetric execute-latency
                                ^MultiCountStatAndMetric emit-count
                                ^MultiCountStatAndMetric transfer-count
-                               ^MultiCountStatAndMetric wait-latency])
+                               ^MultiCountStatAndMetric wait-latency
+                               ^MultiCountStatAndMetric empty-time])
 (defrecord SpoutThrottlingMetrics [^CountMetric skipped-max-spout
                                    ^CountMetric skipped-throttle
                                    ^CountMetric skipped-inactive])
@@ -51,7 +52,8 @@
                                (stats-execute-latencies stats)
                                (stats-emitted stats)
                                (stats-transferred stats)
-                               (stats-wait-latencies stats))))
+                               (stats-wait-latencies stats)
+                               (stats-empty-time stats))))
 
 (defn make-spout-throttling-data []
   (SpoutThrottlingMetrics. (CountMetric.)

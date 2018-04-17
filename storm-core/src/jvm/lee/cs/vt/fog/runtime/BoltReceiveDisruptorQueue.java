@@ -13,6 +13,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     private boolean isSpout = false;
     private MultiCountStatAndMetric waitLatencyMetric = null;
+    private MultiCountStatAndMetric emptyTimeMetric = null;
 
     private long waitStartTime = -1;
     private long totalWaitTime = 0;
@@ -127,6 +128,10 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         this.waitLatencyMetric = waitLatencyMetric;
     }
 
+    public void setEmptyTimeMetric(MultiCountStatAndMetric emptyTimeMetric) {
+        this.emptyTimeMetric = emptyTimeMetric;
+    }
+
     private void setWaitStartTime() {
         waitStartTime = System.currentTimeMillis();
     }
@@ -154,8 +159,11 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         if (emptyStartTime == -1) {
             return;
         }
-        totalEmptyTime += System.currentTimeMillis() - emptyStartTime;
+        long delta = System.currentTimeMillis() - emptyStartTime;
+        totalEmptyTime += delta;
         emptyStartTime = -1;
+
+        emptyTimeMetric.incBy("default", delta);
     }
 
     public long getTotalEmptyTime() {
