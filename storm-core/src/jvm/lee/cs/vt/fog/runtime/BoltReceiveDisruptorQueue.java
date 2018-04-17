@@ -17,6 +17,9 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
     private long waitStartTime = -1;
     private long totalWaitTime = 0;
 
+    private long emptyStartTime = -1;
+    private long totalEmptyTime = 0;
+
     public BoltReceiveDisruptorQueue(String queueName,
                                      ProducerType type,
                                      int size,
@@ -37,6 +40,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
         if (!isSpout && _metrics.population() == 1) {
             setWaitStartTime();
+            addEmptyTime();
         }
 
         AtomicReference<Object> m = _buffer.get(at);
@@ -58,6 +62,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
             if (!isSpout && _metrics.population() == size) {
                 setWaitStartTime();
+                addEmptyTime();
             }
 
             long begin = end - (size - 1);
@@ -105,8 +110,12 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         }
         _consumer.set(cursor);
 
-        if (!isSpout && _metrics.population() > 0) {
-            setWaitStartTime();
+        if (!isSpout) {
+            if(_metrics.population() > 0){
+                setWaitStartTime();
+            } else {
+                setEmptyStartTime();
+            }
         }
     }
 
@@ -135,5 +144,21 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     public long getTotalWaitTime() {
         return totalWaitTime;
+    }
+
+    private void setEmptyStartTime() {
+        emptyStartTime = System.currentTimeMillis();
+    }
+
+    private void addEmptyTime() {
+        if (emptyStartTime == -1) {
+            return;
+        }
+        totalEmptyTime += System.currentTimeMillis() - emptyStartTime;
+        emptyStartTime = -1;
+    }
+
+    public long getTotalEmptyTime() {
+        return totalEmptyTime;
     }
 }
