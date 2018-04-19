@@ -92,6 +92,9 @@ public class FogRuntime {
                 case "eda-static":
                     policy = new EDAStaticPolicy(bolts, storm_conf);
                     break;
+                case "eda-random":
+                    policy = new EDARandomPolicy(bolts);
+                    break;
                 default:
                     policy = new EDADynamicPolicy(bolts);
                     break;
