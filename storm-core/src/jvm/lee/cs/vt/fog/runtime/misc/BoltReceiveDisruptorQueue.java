@@ -17,7 +17,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
     private final Lock lock = FogRuntime.LOCK;
     private final Condition condition = FogRuntime.CONDITION;
 
-    private boolean isSpout = false;
+    private boolean isBolt = false;
 
     private long waitStartTime = -1;
     private long totalWaitTime = 0;
@@ -47,13 +47,13 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
             at = _buffer.tryNext();
         }
 
-        if (!isSpout &&
+        if (isBolt &&
                 FogRuntime.getWaitTime &&
                 _metrics.population() == 1) {
             setWaitStartTime();
         }
 
-        if (!isSpout &&
+        if (isBolt &&
                 FogRuntime.getEmptyTime &&
                 _metrics.population() == 1) {
             addEmptyTime();
@@ -64,7 +64,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         _buffer.publish(at);
         _metrics.notifyArrivals(1);
 
-        if (!isSpout) {
+        if (isBolt) {
             lock.lock();
             condition.signalAll();
             lock.unlock();
@@ -82,13 +82,13 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
                 end = _buffer.tryNext(size);
             }
 
-            if (!isSpout &&
+            if (isBolt &&
                     FogRuntime.getWaitTime &&
                     _metrics.population() == size) {
                 setWaitStartTime();
             }
 
-            if (!isSpout &&
+            if (isBolt &&
                     FogRuntime.getEmptyTime &&
                     _metrics.population() == size) {
                 addEmptyTime();
@@ -104,7 +104,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
             _buffer.publish(begin, end);
             _metrics.notifyArrivals(size);
 
-            if (!isSpout) {
+            if (isBolt) {
                 lock.lock();
                 condition.signalAll();
                 lock.unlock();
@@ -114,7 +114,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     @Override
     protected void consumeBatchToCursor(long cursor, EventHandler<Object> handler) {
-        if (!isSpout &&
+        if (isBolt &&
                 FogRuntime.getWaitTime) {
             addWaitTime();
         }
@@ -153,21 +153,24 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         }
         _consumer.set(cursor);
 
-        if (!isSpout &&
+        if (isBolt &&
                 FogRuntime.getWaitTime &&
                 _metrics.population() > 0) {
             setWaitStartTime();
         }
 
-        if (!isSpout &&
+        if (isBolt &&
                 FogRuntime.getEmptyTime &&
                 _metrics.population() == 0) {
             setEmptyStartTime();
         }
     }
 
-    public void setSpout() {
-        isSpout = true;
+    public void setBolt() {
+        isBolt = true;
+    }
+    public boolean isBolt() {
+        return isBolt;
     }
 
     public void setWaitLatMetric(MultiCountStatAndMetric waitLatencyMetric) {

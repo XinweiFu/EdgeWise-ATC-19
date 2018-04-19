@@ -4,15 +4,15 @@ import lee.cs.vt.fog.runtime.misc.BoltReceiveDisruptorQueue;
 import lee.cs.vt.fog.runtime.misc.ExecutorCallback;
 import lee.cs.vt.fog.runtime.policy.*;
 import lee.cs.vt.fog.runtime.thread.BoltThread;
+import lee.cs.vt.fog.runtime.thread.SysBoltThread;
+import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
+import lee.cs.vt.fog.runtime.unit.SysBoltRuntimeUnit;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -27,6 +27,7 @@ public class FogRuntime {
     private String infoPath = null;
 
     private final Set<BoltThread> boltThreads;
+    private final Set<SysBoltThread> sysBoltThreads;
     private final RuntimePolicy policy;
 
     private final String storm_id;
@@ -59,18 +60,37 @@ public class FogRuntime {
             assert(infoPath != null);
         }
 
+        sysBoltThreads = new HashSet<SysBoltThread>();
+        Set<BoltRuntimeUnit> bolts = new HashSet<BoltRuntimeUnit>();
+        for (ExecutorCallback.CallbackProvider e : list) {
+            ExecutorCallback callback = e.getCallback();
+            if (callback == null)
+                continue;
+
+            Object executorId = callback.getExecutorId();
+            BoltReceiveDisruptorQueue queue = map.get(executorId);
+
+            String componentId = callback.getComponentId();
+
+            if (queue.isBolt()) {
+                bolts.add(new BoltRuntimeUnit(componentId, queue, callback));
+            } else {
+                SysBoltRuntimeUnit unit = new SysBoltRuntimeUnit(componentId, queue, callback);
+                sysBoltThreads.add(new SysBoltThread(unit));
+            }
+
+        }
 
         String policyString = (String) storm_conf.get("policy");
-
         if (policyString == null)
-            policy = new EDADynamicPolicy(list, map);
+            policy = new EDADynamicPolicy(bolts);
         else {
             switch (policyString) {
                 case "eda-dynamic":
-                    policy = new EDADynamicPolicy(list, map);
+                    policy = new EDADynamicPolicy(bolts);
                     break;
                 default:
-                    policy = new EDADynamicPolicy(list, map);
+                    policy = new EDADynamicPolicy(bolts);
                     break;
             }
         }
@@ -86,9 +106,14 @@ public class FogRuntime {
     }
 
     public void start() {
+        System.out.println("Fog Runtime Start begins:");
+        for (SysBoltThread sysBoltThread : sysBoltThreads) {
+            sysBoltThread.start();
+        }
         for (BoltThread boltThread : boltThreads) {
             boltThread.start();
         }
+        System.out.println("Fog Runtime Start ends.");
     }
 
     public void stop() throws InterruptedException {
@@ -102,6 +127,9 @@ public class FogRuntime {
             printToInfo("empty_info", policy.printTotalEmptyTime());
         }
 
+        for (SysBoltThread sysBoltThread : sysBoltThreads) {
+            sysBoltThread.stopAndWait();
+        }
         for (BoltThread boltThread : boltThreads) {
             boltThread.stopAndWait();
         }
@@ -128,6 +156,9 @@ public class FogRuntime {
 
     private void print() {
         System.out.println("Fog Runtime Print begins:");
+        for (SysBoltThread sysBoltThread : sysBoltThreads) {
+            sysBoltThread.print();
+        }
         policy.print();
         System.out.println("Fog Runtime Print ends");
     }

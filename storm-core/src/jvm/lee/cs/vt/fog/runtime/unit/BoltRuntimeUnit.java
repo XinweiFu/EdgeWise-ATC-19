@@ -11,8 +11,7 @@ public class BoltRuntimeUnit extends RuntimeUnit{
 
     public BoltRuntimeUnit(String componentId,
                            BoltReceiveDisruptorQueue queue,
-                           ExecutorCallback callback,
-                           MultiCountStatAndMetric waitLatencyMetric) {
+                           ExecutorCallback callback) {
         super(callback);
         assert(callback.getType() == ExecutorCallback.ExecutorType.bolt);
 

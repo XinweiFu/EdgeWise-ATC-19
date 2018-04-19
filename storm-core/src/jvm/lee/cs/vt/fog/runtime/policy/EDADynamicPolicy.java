@@ -20,37 +20,9 @@ public class EDADynamicPolicy implements RuntimePolicy {
     private final Lock lock = FogRuntime.LOCK;
     private final Condition condition = FogRuntime.CONDITION;
 
-    public EDADynamicPolicy(List<ExecutorCallback.CallbackProvider> list,
-                            Map<Object, BoltReceiveDisruptorQueue> map) {
-        this.bolts = new HashSet<BoltRuntimeUnit>();
-
-        for (ExecutorCallback.CallbackProvider provider : list) {
-            ExecutorCallback callback = provider.getCallback();
-            if (callback == null)
-                continue;
-
-            MultiCountStatAndMetric metric = provider.getWaitLatencyMetric();
-
-            Object executorId = callback.getExecutorId();
-            BoltReceiveDisruptorQueue queue = map.get(executorId);
-            assert(queue != null);
-
-            String componentId = callback.getComponentId();
-
-            ExecutorCallback.ExecutorType type = callback.getType();
-            switch (type) {
-                case bolt:
-                    this.bolts.add(new BoltRuntimeUnit(componentId, queue, callback, metric));
-                    break;
-                default:
-                    // Never comes here
-                    assert(false);
-            }
-        }
-
+    public EDADynamicPolicy(Set<BoltRuntimeUnit> bolts) {
+        this.bolts = bolts;
         this.availableBolts = new HashSet<BoltRuntimeUnit>(bolts);
-
-        System.out.println("Policy: EDADynamicPolicy");
     }
 
     @Override

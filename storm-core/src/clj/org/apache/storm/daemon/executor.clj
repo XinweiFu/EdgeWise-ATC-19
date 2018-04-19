@@ -560,9 +560,6 @@
          (while (not @(:storm-active-atom executor-data))
            (Thread/sleep 100))
 
-         (log-message "Set Spout Receive Queue")
-         (.setSpout receive-queue)
-
          (log-message "Opening spout " component-id ":" (keys task-datas))
          (builtin-metrics/register-spout-throttling-metrics (:spout-throttling-metrics executor-data) storm-conf (:user-context (first (vals task-datas))))
          (doseq [[task-id task-data] task-datas
@@ -758,6 +755,14 @@
         has-eventloggers? (has-eventloggers? storm-conf)
 
         event-handler (mk-task-receiver executor-data tuple-action-fn)
+        ^String c-id (:component-id executor-data)
+        is-sys (.startsWith c-id "__")
+        callback-sys (reify ExecutorCallback
+                       (getType [this] ExecutorCallback$ExecutorType/bolt)
+                       (getExecutorId [this] (:executor-id executor-data))
+                       (getComponentId [this] (:component-id executor-data))
+                       (run [this]
+                         (disruptor/consume-batch-when-available (:receive-queue executor-data) event-handler)))
         callback (let [consume (.get storm-conf "consume")
                        constant (.get storm-conf "constant")]
                    (case consume
@@ -800,8 +805,9 @@
         ;; (while (not @(:storm-active-atom executor-data)) (Thread/sleep 100))
 
         (log-message "Set Bolt Metrics")
-        (.setWaitLatMetric (:receive-queue executor-data) (stats-wait-latencies (:stats executor-data)))
-        (.setEmptyTimeMetric (:receive-queue executor-data) (stats-empty-time (:stats executor-data)))
+        (if (not is-sys) (.setBolt (:receive-queue executor-data)))
+        (if (not is-sys) (.setWaitLatMetric (:receive-queue executor-data) (stats-wait-latencies (:stats executor-data))))
+        (if (not is-sys) (.setEmptyTimeMetric (:receive-queue executor-data) (stats-empty-time (:stats executor-data))))
 
         (log-message "Preparing bolt " component-id ":" (keys task-datas))
         (doseq [[task-id task-data] task-datas
@@ -898,7 +904,7 @@
         (log-message "Prepared bolt " component-id ":" (keys task-datas))
         (setup-metrics! executor-data)
 
-        callback
+        (if is-sys callback-sys callback)
         ))
 
 (defmethod close-component :spout [executor-data spout]
