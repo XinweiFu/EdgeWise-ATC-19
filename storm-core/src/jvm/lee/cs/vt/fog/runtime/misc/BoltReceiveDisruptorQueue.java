@@ -4,6 +4,7 @@ import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.InsufficientCapacityException;
 import com.lmax.disruptor.dsl.ProducerType;
 import lee.cs.vt.fog.runtime.FogRuntime;
+import lee.cs.vt.fog.runtime.unit.WeightBoltRuntimeUnit;
 import org.apache.storm.metric.internal.MultiCountStatAndMetric;
 import org.apache.storm.utils.DisruptorQueue;
 
@@ -29,6 +30,8 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
     private MultiCountStatAndMetric waitLatencyMetric = null;
     private MultiCountStatAndMetric emptyTimeMetric = null;
 
+    private WeightBoltRuntimeUnit unit = null;
+
     public BoltReceiveDisruptorQueue(String queueName,
                                      ProducerType type,
                                      int size,
@@ -47,15 +50,17 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
             at = _buffer.tryNext();
         }
 
+        boolean isEmpty = _metrics.population() == 1;
+
         if (isBolt &&
                 FogRuntime.getWaitTime &&
-                _metrics.population() == 1) {
+                isEmpty) {
             setWaitStartTime();
         }
 
         if (isBolt &&
                 FogRuntime.getEmptyTime &&
-                _metrics.population() == 1) {
+                isEmpty) {
             addEmptyTime();
         }
 
@@ -64,8 +69,11 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         _buffer.publish(at);
         _metrics.notifyArrivals(1);
 
-        if (isBolt) {
+        if (isBolt && isEmpty) {
             lock.lock();
+            if (unit != null) {
+                unit.updateEmptyQueue();
+            }
             condition.signalAll();
             lock.unlock();
         }
@@ -82,15 +90,17 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
                 end = _buffer.tryNext(size);
             }
 
+            boolean isEmpty = _metrics.population() == size;
+
             if (isBolt &&
                     FogRuntime.getWaitTime &&
-                    _metrics.population() == size) {
+                    isEmpty) {
                 setWaitStartTime();
             }
 
             if (isBolt &&
                     FogRuntime.getEmptyTime &&
-                    _metrics.population() == size) {
+                    isEmpty) {
                 addEmptyTime();
             }
 
@@ -104,8 +114,11 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
             _buffer.publish(begin, end);
             _metrics.notifyArrivals(size);
 
-            if (isBolt) {
+            if (isBolt && isEmpty) {
                 lock.lock();
+                if (unit != null) {
+                    unit.updateEmptyQueue();
+                }
                 condition.signalAll();
                 lock.unlock();
             }
@@ -171,6 +184,10 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
     }
     public boolean isBolt() {
         return isBolt;
+    }
+
+    public void setWeightUnit(WeightBoltRuntimeUnit unit) {
+        this.unit = unit;
     }
 
     public void setWaitLatMetric(MultiCountStatAndMetric waitLatencyMetric) {

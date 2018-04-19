@@ -27,6 +27,10 @@ public class BoltRuntimeUnit extends RuntimeUnit{
         return componentId + "," + queue.getName();
     }
 
+    public BoltReceiveDisruptorQueue getQueue() {
+        return queue;
+    }
+
     @Override
     public String toString() {
         return getName();
