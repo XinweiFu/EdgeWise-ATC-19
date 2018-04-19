@@ -582,6 +582,7 @@
                                                                                       task-id
                                                                                       out-stream-id
                                                                                       tuple-id)]
+                                                            (.setInitTime out-tuple)
                                                             (transfer-fn out-task out-tuple)))
                                           (if has-eventloggers?
                                             (send-to-eventlogger executor-data task-data values component-id message-id rand))
@@ -694,6 +695,11 @@
     (if ms
       (time-delta-ms ms))))
 
+(defn- tuple-queue-time-delta! [^TupleImpl tuple]
+  (let [ms (.getInitTime tuple)]
+    (if ms
+      (time-delta-ms ms))))
+
 (defn put-xor! [^Map pending key id]
   (let [curr (or (.get pending key) (long 0))]
     (.put pending key (bit-xor curr id))))
@@ -720,16 +726,16 @@
                           ;; TODO: for state sync, need to check if tuple comes from state spout. if so, update state
                           ;; TODO: how to handle incremental updates as well as synchronizations at same time
                           ;; TODO: need to version tuples somehow
-                          
+
                           ;;(log-debug "Received tuple " tuple " at task " task-id)
                           ;; need to do it this way to avoid reflection
                           (let [stream-id (.getSourceStreamId tuple)]
                             (condp = stream-id
-                              Constants/CREDENTIALS_CHANGED_STREAM_ID 
-                                (let [task-data (get task-datas task-id)
-                                      bolt-obj (:object task-data)]
-                                  (when (instance? ICredentialsListener bolt-obj)
-                                    (.setCredentials bolt-obj (.getValue tuple 0))))
+                              Constants/CREDENTIALS_CHANGED_STREAM_ID
+                              (let [task-data (get task-datas task-id)
+                                    bolt-obj (:object task-data)]
+                                (when (instance? ICredentialsListener bolt-obj)
+                                  (.setCredentials bolt-obj (.getValue tuple 0))))
                               Constants/METRICS_TICK_STREAM_ID (metrics-tick executor-data (get task-datas task-id) tuple)
                               (let [task-data (get task-datas task-id)
                                     ^IBolt bolt-obj (:object task-data)
@@ -745,13 +751,16 @@
                                 (let [delta (tuple-execute-time-delta! tuple)]
                                   (when debug?
                                     (log-message "Execute done TUPLE " tuple " TASK: " task-id " DELTA: " delta))
- 
+
                                   (task/apply-hooks user-context .boltExecute (BoltExecuteInfo. tuple task-id delta))
                                   (when delta
                                     (stats/bolt-execute-tuple! executor-stats
                                                                (.getSourceComponent tuple)
                                                                (.getSourceStreamId tuple)
-                                                               delta)))))))
+                                                               delta))))))
+
+                          (let [delta (tuple-queue-time-delta! tuple)]
+                            (if delta (recode-queue-time! executor-stats delta))))
         has-eventloggers? (has-eventloggers? storm-conf)
 
         event-handler (mk-task-receiver executor-data tuple-action-fn)
@@ -833,6 +842,7 @@
                                                                                task-id
                                                                                stream
                                                                                (MessageId/makeId anchors-to-ids))]
+                                                          (.setInitTime tuple)
                                                           (transfer-fn t tuple))))
                                     (if has-eventloggers?
                                       (send-to-eventlogger executor-data task-data values component-id nil rand))
