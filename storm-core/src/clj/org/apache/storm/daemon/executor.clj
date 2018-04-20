@@ -582,7 +582,7 @@
                                                                                       task-id
                                                                                       out-stream-id
                                                                                       tuple-id)]
-                                                            (.setInitTime out-tuple)
+                                                            (if (FogRuntime/getQueueTime) (.setInitTime out-tuple))
                                                             (transfer-fn out-task out-tuple)))
                                           (if has-eventloggers?
                                             (send-to-eventlogger executor-data task-data values component-id message-id rand))
@@ -758,9 +758,10 @@
                                                                (.getSourceComponent tuple)
                                                                (.getSourceStreamId tuple)
                                                                delta))))))
-
-                          (let [delta (tuple-queue-time-delta! tuple)]
-                            (if delta (recode-queue-time! executor-stats delta))))
+                          (if
+                            (FogRuntime/getQueueTime)
+                            (let [delta (tuple-queue-time-delta! tuple)]
+                              (if delta (recode-queue-time! executor-stats delta)))))
         has-eventloggers? (has-eventloggers? storm-conf)
 
         event-handler (mk-task-receiver executor-data tuple-action-fn)
@@ -842,7 +843,7 @@
                                                                                task-id
                                                                                stream
                                                                                (MessageId/makeId anchors-to-ids))]
-                                                          (.setInitTime tuple)
+                                                          (if (FogRuntime/getQueueTime) (.setInitTime tuple))
                                                           (transfer-fn t tuple))))
                                     (if has-eventloggers?
                                       (send-to-eventlogger executor-data task-data values component-id nil rand))

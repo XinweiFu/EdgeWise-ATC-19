@@ -25,6 +25,7 @@ public class FogRuntime {
     public static boolean getWaitTime = false;
     public static boolean getEmptyTime = false;
     private String infoPath = null;
+    public static boolean getQueueTime = false;
 
     private final Set<BoltThread> boltThreads;
     private final Set<SysBoltThread> sysBoltThreads;
@@ -58,6 +59,11 @@ public class FogRuntime {
                 FogRuntime.getEmptyTime) {
             infoPath = (String) storm_conf.get("info_path");
             assert(infoPath != null);
+        }
+
+        Object getQueueTime = storm_conf.get("get_queue_time");
+        if (getQueueTime != null) {
+            FogRuntime.getQueueTime = (boolean) getQueueTime;
         }
 
         sysBoltThreads = new HashSet<SysBoltThread>();
