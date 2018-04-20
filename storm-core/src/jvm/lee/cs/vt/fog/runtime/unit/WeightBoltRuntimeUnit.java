@@ -7,7 +7,6 @@ import lee.cs.vt.fog.runtime.misc.WeightManager;
 public class WeightBoltRuntimeUnit extends BoltRuntimeUnit {
     private final int weight;
     private final WeightManager weightManager;
-    private boolean isRunning = false;
 
     public WeightBoltRuntimeUnit(String componentId,
                                  BoltReceiveDisruptorQueue queue,
@@ -21,14 +20,6 @@ public class WeightBoltRuntimeUnit extends BoltRuntimeUnit {
 
     public int getWeight() {
         return weight;
-    }
-
-    public void setIsRunning(boolean isRunning) {
-        this.isRunning = isRunning;
-    }
-
-    public boolean isRunning() {
-        return isRunning;
     }
 
     public void updateEmptyQueue() {

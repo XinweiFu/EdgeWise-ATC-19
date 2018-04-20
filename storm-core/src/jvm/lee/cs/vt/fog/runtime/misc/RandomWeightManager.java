@@ -38,7 +38,6 @@ public class RandomWeightManager implements WeightManager{
             ret = availables.get(i);
             assert(ret != null);
             availables.remove(i);
-            ret.setIsRunning(true);
 
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -53,8 +52,7 @@ public class RandomWeightManager implements WeightManager{
     public void unitReset(BoltRuntimeUnit unit) {
         lock.lock();
         WeightBoltRuntimeUnit weightUnit = (WeightBoltRuntimeUnit) unit;
-        weightUnit.setIsRunning(false);
-        if (unit.getNumInQ() > 0) {
+        if (unit.getNumInQ() > 0 && !availables.contains(weightUnit)) {
             availables.add(weightUnit);
         }
         lock.unlock();
@@ -62,7 +60,7 @@ public class RandomWeightManager implements WeightManager{
 
     @Override
     public void updateEmptyQueue(WeightBoltRuntimeUnit unit) {
-        if (!unit.isRunning()) {
+        if (!availables.contains(unit)) {
             availables.add(unit);
         }
     }
