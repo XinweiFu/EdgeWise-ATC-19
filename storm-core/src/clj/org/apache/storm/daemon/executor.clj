@@ -582,7 +582,6 @@
                                                                                       task-id
                                                                                       out-stream-id
                                                                                       tuple-id)]
-                                                            (if (FogRuntime/getQueueTime) (.setInitTime out-tuple))
                                                             (transfer-fn out-task out-tuple)))
                                           (if has-eventloggers?
                                             (send-to-eventlogger executor-data task-data values component-id message-id rand))
@@ -696,9 +695,10 @@
       (time-delta-ms ms))))
 
 (defn- tuple-queue-time-delta! [^TupleImpl tuple]
-  (let [ms (.getInitTime tuple)]
-    (if ms
-      (time-delta-ms ms))))
+  (if (.contains tuple "TIMESTAMP")
+    (let [ms (.getLongByField tuple "TIMESTAMP")]
+      (if (> ms 0)
+        (time-delta-ms ms)))))
 
 (defn put-xor! [^Map pending key id]
   (let [curr (or (.get pending key) (long 0))]
@@ -843,7 +843,6 @@
                                                                                task-id
                                                                                stream
                                                                                (MessageId/makeId anchors-to-ids))]
-                                                          (if (FogRuntime/getQueueTime) (.setInitTime tuple))
                                                           (transfer-fn t tuple))))
                                     (if has-eventloggers?
                                       (send-to-eventlogger executor-data task-data values component-id nil rand))

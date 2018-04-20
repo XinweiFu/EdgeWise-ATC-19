@@ -82,15 +82,6 @@ public class TupleImpl extends IndifferentAccessMap implements Seqable, Indexed,
         return _executeSampleStartTime;
     }
 
-    Long _initTime;
-    public void setInitTime() {
-        _initTime = System.currentTimeMillis();
-    }
-
-    public Long getInitTime() {
-        return _initTime;
-    }
-    
     long _outAckVal = 0;
     
     public void updateAckVal(long val) {
