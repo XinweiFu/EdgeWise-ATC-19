@@ -33,7 +33,7 @@
                                ^MultiCountStatAndMetric transfer-count
                                ^MultiCountStatAndMetric wait-latency
                                ^MultiCountStatAndMetric empty-time
-                               ^MultiCountStatAndMetric queue-time])
+                               ^MultiLatencyStatAndMetric queue-time])
 (defrecord SpoutThrottlingMetrics [^CountMetric skipped-max-spout
                                    ^CountMetric skipped-throttle
                                    ^CountMetric skipped-inactive])

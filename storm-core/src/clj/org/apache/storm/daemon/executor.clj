@@ -757,11 +757,11 @@
                                     (stats/bolt-execute-tuple! executor-stats
                                                                (.getSourceComponent tuple)
                                                                (.getSourceStreamId tuple)
-                                                               delta))))))
-                          (if
-                            (FogRuntime/getQueueTime)
-                            (let [delta (tuple-queue-time-delta! tuple)]
-                              (if delta (recode-queue-time! executor-stats delta)))))
+                                                               delta)))
+                                (when (and (FogRuntime/getQueueTime) execute-sampler?)
+                                  (let [delta (tuple-queue-time-delta! tuple)]
+                                    (if delta (recode-queue-time! executor-stats delta))))
+                                ))))
         has-eventloggers? (has-eventloggers? storm-conf)
 
         event-handler (mk-task-receiver executor-data tuple-action-fn)

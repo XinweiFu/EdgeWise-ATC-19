@@ -47,7 +47,7 @@
                               ^MultiLatencyStatAndMetric execute-latencies
                               ^MultiCountStatAndMetric wait-latencies
                               ^MultiCountStatAndMetric empty-time
-                              ^MultiCountStatAndMetric queue-time])
+                              ^MultiLatencyStatAndMetric queue-time])
 
 (def SPOUT-FIELDS [:acked :failed :complete-latencies])
 ;;acked and failed count tuple completion
@@ -76,7 +76,7 @@
     (MultiLatencyStatAndMetric. NUM-STAT-BUCKETS)
     (MultiCountStatAndMetric. NUM-STAT-BUCKETS)
     (MultiCountStatAndMetric. NUM-STAT-BUCKETS)
-    (MultiCountStatAndMetric. NUM-STAT-BUCKETS)))
+    (MultiLatencyStatAndMetric. NUM-STAT-BUCKETS)))
 
 (defn mk-spout-stats
   [rate]
@@ -136,8 +136,8 @@
 
 (defn recode-queue-time!
   [^BoltExecutorStats stats, delta]
-  (let [queue-time (stats-queue-time stats)]
-    (if queue-time (.incBy queue-time "default" delta))))
+  (let [^MultiLatencyStatAndMetric queue-time (stats-queue-time stats)]
+    (if queue-time (.record queue-time "default" delta))))
 
 (defn emitted-tuple!
   [stats stream]
@@ -277,7 +277,7 @@
    (window-set-converter (.get_execute_ms_avg stats) from-global-stream-id identity)
    (window-set-converter (.get_executed stats) from-global-stream-id identity)
    (window-set-converter (.get_executed stats) from-global-stream-id identity)
-   (window-set-converter (.get_executed stats) from-global-stream-id identity)])
+   (window-set-converter (.get_execute_ms_avg stats) from-global-stream-id identity)])
 
 (defmethod clojurify-specific-stats SpoutStats [^SpoutStats stats]
   [(.get_acked stats)
