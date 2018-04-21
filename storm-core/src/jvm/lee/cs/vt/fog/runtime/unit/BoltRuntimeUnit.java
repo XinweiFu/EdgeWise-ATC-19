@@ -2,12 +2,13 @@ package lee.cs.vt.fog.runtime.unit;
 
 import lee.cs.vt.fog.runtime.misc.BoltReceiveDisruptorQueue;
 import lee.cs.vt.fog.runtime.misc.ExecutorCallback;
-import org.apache.storm.metric.internal.MultiCountStatAndMetric;
+import lee.cs.vt.fog.runtime.policy.RuntimePolicy;
 import org.apache.storm.utils.DisruptorQueue;
 
 public class BoltRuntimeUnit extends RuntimeUnit{
     private final String componentId;
     private final BoltReceiveDisruptorQueue queue;
+    private RuntimePolicy policy = null;
 
     public BoltRuntimeUnit(String componentId,
                            BoltReceiveDisruptorQueue queue,
@@ -39,6 +40,14 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     public long getNumInQ() {
         DisruptorQueue.QueueMetrics m = queue.getMetrics();
         return m.population();
+    }
+
+    public void setPolicy(RuntimePolicy policy) {
+        this.policy = policy;
+    }
+
+    public void updateEmptyQueue() {
+        policy.updateEmptyQueue(this);
     }
 
     public String printAverageWaitTime() {

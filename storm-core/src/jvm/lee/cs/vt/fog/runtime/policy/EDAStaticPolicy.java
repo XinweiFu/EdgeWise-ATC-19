@@ -21,6 +21,6 @@ public class EDAStaticPolicy extends EDAWeightPolicy {
 
     @Override
     protected WeightManager getManager(Set<BoltRuntimeUnit> bolts, Map storm_conf) {
-        return new StaticWeightManager(bolts, storm_conf);
+        return new StaticWeightManager(bolts, storm_conf, this);
     }
 }

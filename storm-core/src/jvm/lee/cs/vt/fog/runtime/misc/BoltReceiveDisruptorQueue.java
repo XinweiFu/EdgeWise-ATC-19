@@ -4,6 +4,7 @@ import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.InsufficientCapacityException;
 import com.lmax.disruptor.dsl.ProducerType;
 import lee.cs.vt.fog.runtime.FogRuntime;
+import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
 import lee.cs.vt.fog.runtime.unit.WeightBoltRuntimeUnit;
 import org.apache.storm.metric.internal.MultiCountStatAndMetric;
 import org.apache.storm.utils.DisruptorQueue;
@@ -30,7 +31,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
     private MultiCountStatAndMetric waitLatencyMetric = null;
     private MultiCountStatAndMetric emptyTimeMetric = null;
 
-    private WeightBoltRuntimeUnit unit = null;
+    private BoltRuntimeUnit unit = null;
 
     public BoltReceiveDisruptorQueue(String queueName,
                                      ProducerType type,
@@ -186,7 +187,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
         return isBolt;
     }
 
-    public void setWeightUnit(WeightBoltRuntimeUnit unit) {
+    public void setUnit(BoltRuntimeUnit unit) {
         this.unit = unit;
     }
 

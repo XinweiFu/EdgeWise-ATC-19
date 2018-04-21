@@ -15,14 +15,19 @@ import java.util.concurrent.locks.Lock;
 
 public class EDADynamicPolicy implements RuntimePolicy {
     private final Set<BoltRuntimeUnit> bolts;
-    private final Set<BoltRuntimeUnit> availableBolts;
+    private final Set<BoltRuntimeUnit> availables;
 
     private final Lock lock = FogRuntime.LOCK;
     private final Condition condition = FogRuntime.CONDITION;
 
     public EDADynamicPolicy(Set<BoltRuntimeUnit> bolts) {
         this.bolts = bolts;
-        this.availableBolts = new HashSet<BoltRuntimeUnit>(bolts);
+        this.availables = new HashSet<BoltRuntimeUnit>();
+
+        for (BoltRuntimeUnit bolt : bolts) {
+            bolt.setPolicy(this);
+            bolt.getQueue().setUnit(bolt);
+        }
     }
 
     @Override
@@ -30,11 +35,13 @@ public class EDADynamicPolicy implements RuntimePolicy {
         lock.lock();
         BoltRuntimeUnit ret = null;
         try {
-           while ((ret = getUnit()) == null) {
+           while (availables.isEmpty()) {
                 condition.await();
             }
 
-            availableBolts.remove(ret);
+            ret = getUnit();
+            assert(ret != null);
+            availables.remove(ret);
 
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -48,8 +55,17 @@ public class EDADynamicPolicy implements RuntimePolicy {
     @Override
     public void unitReset(BoltRuntimeUnit unit) {
         lock.lock();
-        availableBolts.add(unit);
+        if (unit.getNumInQ() > 0 && !availables.contains(unit)) {
+            availables.add(unit);
+        }
         lock.unlock();
+    }
+
+    @Override
+    public void updateEmptyQueue(BoltRuntimeUnit unit) {
+        if (!availables.contains(unit)) {
+            availables.add(unit);
+        }
     }
 
     @Override
@@ -82,7 +98,7 @@ public class EDADynamicPolicy implements RuntimePolicy {
         BoltRuntimeUnit ret = null;
         long max = 0;
 
-        for (BoltRuntimeUnit bolt : availableBolts) {
+        for (BoltRuntimeUnit bolt : availables) {
             long numInQ = bolt.getNumInQ();
             if (numInQ > max) {
                 max = numInQ;

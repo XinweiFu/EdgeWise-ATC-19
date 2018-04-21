@@ -1,6 +1,7 @@
 package lee.cs.vt.fog.runtime.misc;
 
 import lee.cs.vt.fog.runtime.FogRuntime;
+import lee.cs.vt.fog.runtime.policy.RuntimePolicy;
 import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
 import lee.cs.vt.fog.runtime.unit.WeightBoltRuntimeUnit;
 
@@ -17,9 +18,9 @@ public class RandomWeightManager implements WeightManager{
 
     private Random ran = new Random();
 
-    public RandomWeightManager(Set<BoltRuntimeUnit> bolts) {
+    public RandomWeightManager(Set<BoltRuntimeUnit> bolts, RuntimePolicy policy) {
         this.bolts = new HashSet<WeightBoltRuntimeUnit>();
-        initBolts(bolts);
+        initBolts(bolts, policy);
 
         print();
     }
@@ -59,9 +60,10 @@ public class RandomWeightManager implements WeightManager{
     }
 
     @Override
-    public void updateEmptyQueue(WeightBoltRuntimeUnit unit) {
-        if (!availables.contains(unit)) {
-            availables.add(unit);
+    public void updateEmptyQueue(BoltRuntimeUnit unit) {
+        WeightBoltRuntimeUnit weightUnit = (WeightBoltRuntimeUnit) unit;
+        if (!availables.contains(weightUnit)) {
+            availables.add(weightUnit);
         }
     }
 
@@ -73,15 +75,16 @@ public class RandomWeightManager implements WeightManager{
         }
     }
 
-    private void initBolts(Set<BoltRuntimeUnit> bolts) {
+    private void initBolts(Set<BoltRuntimeUnit> bolts, RuntimePolicy policy) {
         for (BoltRuntimeUnit bolt : bolts) {
             String id = bolt.getComponentId();
             BoltReceiveDisruptorQueue queue = bolt.getQueue();
             ExecutorCallback callback = bolt.getCallback();
             int weight = 1;
 
-            WeightBoltRuntimeUnit unit = new WeightBoltRuntimeUnit(id, queue, callback, weight, this);
-            queue.setWeightUnit(unit);
+            WeightBoltRuntimeUnit unit = new WeightBoltRuntimeUnit(id, queue, callback, weight);
+            unit.setPolicy(policy);
+            queue.setUnit(unit);
             this.bolts.add(unit);
         }
     }

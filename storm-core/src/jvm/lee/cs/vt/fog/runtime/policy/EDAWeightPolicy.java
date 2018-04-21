@@ -33,6 +33,11 @@ public abstract class EDAWeightPolicy implements RuntimePolicy {
     }
 
     @Override
+    public void updateEmptyQueue(BoltRuntimeUnit unit) {
+        weightManager.updateEmptyQueue(unit);
+    }
+
+    @Override
     public void print() {
         weightManager.print();
     }

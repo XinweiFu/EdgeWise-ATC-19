@@ -1,6 +1,7 @@
 package lee.cs.vt.fog.runtime.misc;
 
 import lee.cs.vt.fog.runtime.FogRuntime;
+import lee.cs.vt.fog.runtime.policy.RuntimePolicy;
 import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
 import lee.cs.vt.fog.runtime.unit.WeightBoltRuntimeUnit;
 
@@ -19,11 +20,12 @@ public class StaticWeightManager implements WeightManager{
     private Random ran = new Random();
 
     public StaticWeightManager(Set<BoltRuntimeUnit> bolts,
-                               Map storm_conf) {
+                               Map storm_conf,
+                               RuntimePolicy policy) {
         Map<String, Integer> weights = getWeights(storm_conf);
 
         this.bolts = new HashSet<WeightBoltRuntimeUnit>();
-        initBolts(bolts, weights);
+        initBolts(bolts, weights, policy);
 
         print();
     }
@@ -75,10 +77,11 @@ public class StaticWeightManager implements WeightManager{
     }
 
     @Override
-    public void updateEmptyQueue(WeightBoltRuntimeUnit unit) {
-        if (!availables.contains(unit)) {
-            availables.add(unit);
-            availableWeight += unit.getWeight();
+    public void updateEmptyQueue(BoltRuntimeUnit unit) {
+        WeightBoltRuntimeUnit weightUnit = (WeightBoltRuntimeUnit) unit;
+        if (!availables.contains(weightUnit)) {
+            availables.add(weightUnit);
+            availableWeight += weightUnit.getWeight();
         }
     }
 
@@ -127,15 +130,17 @@ public class StaticWeightManager implements WeightManager{
     }
 
     private void initBolts(Set<BoltRuntimeUnit> bolts,
-                           Map<String, Integer> weights) {
+                           Map<String, Integer> weights,
+                           RuntimePolicy policy) {
         for (BoltRuntimeUnit bolt : bolts) {
             String id = bolt.getComponentId();
             BoltReceiveDisruptorQueue queue = bolt.getQueue();
             ExecutorCallback callback = bolt.getCallback();
             int weight = weights.get(id);
 
-            WeightBoltRuntimeUnit unit = new WeightBoltRuntimeUnit(id, queue, callback, weight, this);
-            queue.setWeightUnit(unit);
+            WeightBoltRuntimeUnit unit = new WeightBoltRuntimeUnit(id, queue, callback, weight);
+            unit.setPolicy(policy);
+            queue.setUnit(unit);
             this.bolts.add(unit);
         }
     }

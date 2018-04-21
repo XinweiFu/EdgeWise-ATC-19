@@ -20,6 +20,6 @@ public class EDARandomPolicy extends EDAWeightPolicy {
 
     @Override
     protected WeightManager getManager(Set<BoltRuntimeUnit> bolts, Map storm_conf) {
-        return new RandomWeightManager(bolts);
+        return new RandomWeightManager(bolts,this);
     }
 }
