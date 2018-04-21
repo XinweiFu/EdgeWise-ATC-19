@@ -9,6 +9,7 @@ public class BoltRuntimeUnit extends RuntimeUnit{
     private final String componentId;
     private final BoltReceiveDisruptorQueue queue;
     private RuntimePolicy policy = null;
+    private boolean isRunning = false;
 
     public BoltRuntimeUnit(String componentId,
                            BoltReceiveDisruptorQueue queue,
@@ -30,6 +31,14 @@ public class BoltRuntimeUnit extends RuntimeUnit{
 
     public BoltReceiveDisruptorQueue getQueue() {
         return queue;
+    }
+
+    public void setIsRunning(boolean isRunning) {
+        this.isRunning = isRunning;
+    }
+
+    public boolean isRunning() {
+        return isRunning;
     }
 
     @Override

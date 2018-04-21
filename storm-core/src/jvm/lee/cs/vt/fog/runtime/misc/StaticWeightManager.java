@@ -53,6 +53,8 @@ public class StaticWeightManager implements WeightManager{
             }
 
             assert(i < availables.size() && ret != null);
+            assert (!ret.isRunning());
+            ret.setIsRunning(true);
             availables.remove(i);
             availableWeight -= ret.getWeight();
 
@@ -68,6 +70,8 @@ public class StaticWeightManager implements WeightManager{
     @Override
     public void unitReset(BoltRuntimeUnit unit) {
         lock.lock();
+        assert (unit.isRunning());
+        unit.setIsRunning(false);
         WeightBoltRuntimeUnit weightUnit = (WeightBoltRuntimeUnit) unit;
         if (unit.getNumInQ() > 0 && !availables.contains(weightUnit)) {
             availables.add(weightUnit);
@@ -79,7 +83,7 @@ public class StaticWeightManager implements WeightManager{
     @Override
     public void updateEmptyQueue(BoltRuntimeUnit unit) {
         WeightBoltRuntimeUnit weightUnit = (WeightBoltRuntimeUnit) unit;
-        if (!availables.contains(weightUnit)) {
+        if (!weightUnit.isRunning() && !availables.contains(weightUnit)) {
             availables.add(weightUnit);
             availableWeight += weightUnit.getWeight();
         }

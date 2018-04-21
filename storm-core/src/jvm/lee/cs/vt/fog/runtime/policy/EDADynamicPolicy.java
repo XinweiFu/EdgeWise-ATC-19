@@ -41,6 +41,8 @@ public class EDADynamicPolicy implements RuntimePolicy {
 
             ret = getUnit();
             assert(ret != null);
+            assert (!ret.isRunning());
+            ret.setIsRunning(true);
             availables.remove(ret);
 
         } catch (InterruptedException e) {
@@ -55,6 +57,8 @@ public class EDADynamicPolicy implements RuntimePolicy {
     @Override
     public void unitReset(BoltRuntimeUnit unit) {
         lock.lock();
+        assert (unit.isRunning());
+        unit.setIsRunning(false);
         if (unit.getNumInQ() > 0 && !availables.contains(unit)) {
             availables.add(unit);
         }
@@ -63,7 +67,7 @@ public class EDADynamicPolicy implements RuntimePolicy {
 
     @Override
     public void updateEmptyQueue(BoltRuntimeUnit unit) {
-        if (!availables.contains(unit)) {
+        if (!unit.isRunning() && !availables.contains(unit)) {
             availables.add(unit);
         }
     }
