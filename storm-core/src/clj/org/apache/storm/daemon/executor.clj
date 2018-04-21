@@ -685,6 +685,12 @@
     (if ms
       (time-delta-ms ms))))
 
+(defn- tuple-queue-time-delta! [^TupleImpl tuple]
+  (if (.contains tuple "TIMESTAMP")
+    (let [ms (.getLongByField tuple "TIMESTAMP")]
+      (if (> ms 0)
+        (time-delta-ms ms)))))
+
 (defn put-xor! [^Map pending key id]
   (let [curr (or (.get pending key) (long 0))]
     (.put pending key (bit-xor curr id))))
@@ -742,7 +748,11 @@
                                     (stats/bolt-execute-tuple! executor-stats
                                                                (.getSourceComponent tuple)
                                                                (.getSourceStreamId tuple)
-                                                               delta)))))))
+                                                               delta)))
+                                (when execute-sampler?
+                                  (let [delta (tuple-queue-time-delta! tuple)]
+                                    (if delta (recode-queue-time! executor-stats delta))))
+                                ))))
         has-eventloggers? (has-eventloggers? storm-conf)]
     
     ;; TODO: can get any SubscribedState objects out of the context now

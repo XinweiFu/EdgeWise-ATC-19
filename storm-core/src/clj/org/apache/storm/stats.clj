@@ -37,7 +37,7 @@
                         ^MultiCountStatAndMetric transferred
                         rate])
 
-(def BOLT-FIELDS [:acked :failed :process-latencies :executed :execute-latencies :wait-latencies :empty-time])
+(def BOLT-FIELDS [:acked :failed :process-latencies :executed :execute-latencies :wait-latencies :empty-time :queue-time])
 ;;acked and failed count individual tuples
 (defrecord BoltExecutorStats [^CommonStats common
                               ^MultiCountStatAndMetric acked
@@ -46,7 +46,8 @@
                               ^MultiCountStatAndMetric executed
                               ^MultiLatencyStatAndMetric execute-latencies
                               ^MultiCountStatAndMetric wait-latencies
-                              ^MultiCountStatAndMetric empty-time])
+                              ^MultiCountStatAndMetric empty-time
+                              ^MultiLatencyStatAndMetric queue-time])
 
 (def SPOUT-FIELDS [:acked :failed :complete-latencies])
 ;;acked and failed count tuple completion
@@ -74,7 +75,8 @@
     (MultiCountStatAndMetric. NUM-STAT-BUCKETS)
     (MultiLatencyStatAndMetric. NUM-STAT-BUCKETS)
     (MultiCountStatAndMetric. NUM-STAT-BUCKETS)
-    (MultiCountStatAndMetric. NUM-STAT-BUCKETS)))
+    (MultiCountStatAndMetric. NUM-STAT-BUCKETS)
+    (MultiLatencyStatAndMetric. NUM-STAT-BUCKETS)))
 
 (defn mk-spout-stats
   [rate]
@@ -128,6 +130,14 @@
   [stats]
   `(:empty-time ~stats))
 
+(defmacro stats-queue-time
+  [stats]
+  `(:queue-time ~stats))
+
+(defn recode-queue-time!
+  [^BoltExecutorStats stats, delta]
+  (let [^MultiLatencyStatAndMetric queue-time (stats-queue-time stats)]
+    (if queue-time (.record queue-time "default" delta))))
 
 (defn emitted-tuple!
   [stats stream]
@@ -266,7 +276,8 @@
    (window-set-converter (.get_executed stats) from-global-stream-id identity)
    (window-set-converter (.get_execute_ms_avg stats) from-global-stream-id identity)
    (window-set-converter (.get_executed stats) from-global-stream-id identity)
-   (window-set-converter (.get_executed stats) from-global-stream-id identity)])
+   (window-set-converter (.get_executed stats) from-global-stream-id identity)
+   (window-set-converter (.get_execute_ms_avg stats) from-global-stream-id identity)])
 
 (defmethod clojurify-specific-stats SpoutStats [^SpoutStats stats]
   [(.get_acked stats)
