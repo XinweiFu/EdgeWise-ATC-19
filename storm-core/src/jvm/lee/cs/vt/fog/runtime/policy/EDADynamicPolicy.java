@@ -100,7 +100,7 @@ public class EDADynamicPolicy implements RuntimePolicy {
 
     private BoltRuntimeUnit getUnit() {
         BoltRuntimeUnit ret = null;
-        long max = 0;
+        long max = -1;
 
         for (BoltRuntimeUnit bolt : availables) {
             long numInQ = bolt.getNumInQ();
