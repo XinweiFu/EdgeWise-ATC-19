@@ -65,6 +65,11 @@
   [conf]
   (even-sampler (sampling-rate conf)))
 
+(defn mk-queue-time-sampler
+  [conf]
+  (log-message "queue_time_sample_freq" (conf "queue_time_sample_freq"))
+  (even-sampler (conf "queue_time_sample_freq")))
+
 (defn read-default-config
   []
   (clojurify-structure (Utils/readDefaultConfig)))

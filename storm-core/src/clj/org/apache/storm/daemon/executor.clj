@@ -708,6 +708,7 @@
   (let [{:keys [storm-conf component-id worker-context transfer-fn report-error sampler
                 open-or-prepare-was-called?]} executor-data
         execute-sampler (mk-stats-sampler storm-conf)
+        queue-time-sampler (mk-queue-time-sampler storm-conf)
         executor-stats (:stats executor-data)
         rand (Random. (Utils/secureRandomLong))
         debug? (= true (storm-conf TOPOLOGY-DEBUG))
@@ -742,6 +743,7 @@
                                     user-context (:user-context task-data)
                                     sampler? (sampler)
                                     execute-sampler? (execute-sampler)
+                                    queue-time-sampler? (queue-time-sampler)
                                     now (if (or sampler? execute-sampler?) (System/currentTimeMillis))]
                                 (when sampler?
                                   (.setProcessSampleStartTime tuple now))
@@ -758,7 +760,7 @@
                                                                (.getSourceComponent tuple)
                                                                (.getSourceStreamId tuple)
                                                                delta)))
-                                (when (and (FogRuntime/getQueueTime) execute-sampler?)
+                                (when (and (FogRuntime/getQueueTime) queue-time-sampler?)
                                   (let [delta (tuple-queue-time-delta! tuple)]
                                     (if delta (recode-queue-time! executor-stats delta))))
                                 ))))
