@@ -130,7 +130,7 @@ public class FogRuntime {
 
     public void stop() throws InterruptedException {
         System.out.println("Fog Runtime Stopping:");
-
+        /*
         if (getWaitTime) {
             printToInfo("wait_info", policy.printAverageWaitTime());
         }
@@ -139,13 +139,14 @@ public class FogRuntime {
             printToInfo("empty_info", policy.printTotalEmptyTime());
         }
 
+        /*
         for (SysBoltThread sysBoltThread : sysBoltThreads) {
             sysBoltThread.stopAndWait();
         }
         for (BoltThread boltThread : boltThreads) {
             boltThread.stopAndWait();
         }
-
+        */
         System.out.println("Fog Runtime Stopped");
     }
 

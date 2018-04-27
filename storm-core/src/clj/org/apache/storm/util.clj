@@ -459,7 +459,7 @@
    cleanup function hangs."
   [func]
   (.addShutdownHook (Runtime/getRuntime) (Thread. #(func)))
-  (.addShutdownHook (Runtime/getRuntime) (Thread. #((sleep-secs 45)
+  (.addShutdownHook (Runtime/getRuntime) (Thread. #((sleep-secs 5)
                                                     (.halt (Runtime/getRuntime) 20)))))
 
 (defprotocol SmartThread
