@@ -7,7 +7,7 @@ import org.apache.storm.utils.DisruptorQueue;
 
 public class BoltRuntimeUnit extends RuntimeUnit{
     private final String componentId;
-    private final BoltReceiveDisruptorQueue queue;
+    protected final BoltReceiveDisruptorQueue queue;
     private RuntimePolicy policy = null;
     private boolean isRunning = false;
 

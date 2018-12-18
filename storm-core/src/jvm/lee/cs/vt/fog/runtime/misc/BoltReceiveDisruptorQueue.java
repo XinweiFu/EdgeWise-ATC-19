@@ -7,6 +7,9 @@ import lee.cs.vt.fog.runtime.FogRuntime;
 import lee.cs.vt.fog.runtime.unit.BoltRuntimeUnit;
 import lee.cs.vt.fog.runtime.unit.WeightBoltRuntimeUnit;
 import org.apache.storm.metric.internal.MultiCountStatAndMetric;
+import org.apache.storm.tuple.AddressedTuple;
+import org.apache.storm.tuple.MessageId;
+import org.apache.storm.tuple.Tuple;
 import org.apache.storm.utils.DisruptorQueue;
 
 import java.util.ArrayList;
@@ -239,6 +242,24 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     public long getTotalEmptyTime() {
         return totalEmptyTime;
+    }
+
+    public long getChainTimestamp() {
+        long curr = _consumer.get() + 1;
+        AtomicReference<Object> mo = _buffer.get(curr);
+        Object o = mo.get();
+        List<AddressedTuple> list = (List<AddressedTuple>) o;
+
+        for (AddressedTuple addressedTuple : list) {
+            Tuple tuple = addressedTuple.getTuple();
+            if (tuple.contains("CHAINSTAMP")) {
+                return tuple.getLongByField("CHAINSTAMP");
+            }
+        }
+
+        System.out.println("not CHAINSTAMP here");
+
+        return Long.MAX_VALUE - 1;
     }
 }
 
