@@ -25,6 +25,7 @@ public class EDAChainPolicy implements RuntimePolicy {
         initBolts(bolts, prios);
 
         this.availables = new HashSet<ChainBoltRuntimeUnit>();
+        this.availables.addAll(this.bolts);
 
         print();
     }
@@ -34,11 +35,10 @@ public class EDAChainPolicy implements RuntimePolicy {
         lock.lock();
         BoltRuntimeUnit ret = null;
         try {
-            while (availables.isEmpty()) {
+            while ((ret = getUnit()) == null) {
                 condition.await();
             }
 
-            ret = getUnit();
             assert(ret != null);
             assert (!ret.isRunning());
             ret.setIsRunning(true);
@@ -58,18 +58,13 @@ public class EDAChainPolicy implements RuntimePolicy {
         lock.lock();
         assert (unit.isRunning());
         unit.setIsRunning(false);
-        if (unit.getNumInQ() > 0 && !availables.contains(unit)) {
-            availables.add((ChainBoltRuntimeUnit) unit);
-        }
+        availables.add((ChainBoltRuntimeUnit) unit);
         lock.unlock();
     }
 
     @Override
     public void updateEmptyQueue(BoltRuntimeUnit unit) {
-        ChainBoltRuntimeUnit chainUnit = (ChainBoltRuntimeUnit) unit;
-        if (!chainUnit.isRunning() && !availables.contains(chainUnit)) {
-            availables.add(chainUnit);
-        }
+
     }
 
     @Override
@@ -103,6 +98,10 @@ public class EDAChainPolicy implements RuntimePolicy {
         Set<ChainBoltRuntimeUnit> priority_max_bolts = new HashSet<ChainBoltRuntimeUnit>();
 
         for (ChainBoltRuntimeUnit bolt : availables) {
+            if (bolt.getNumInQ() == 0) {
+                continue;
+            }
+
             long prio = bolt.getPrio();
             if (prio > prio_max) {
                 prio_max = prio;
@@ -113,7 +112,9 @@ public class EDAChainPolicy implements RuntimePolicy {
             }
         }
 
-        if (priority_max_bolts.size() == 1) {
+        if (priority_max_bolts.size() == 0) {
+            return null;
+        }else if (priority_max_bolts.size() == 1){
             return priority_max_bolts.iterator().next();
         }
 

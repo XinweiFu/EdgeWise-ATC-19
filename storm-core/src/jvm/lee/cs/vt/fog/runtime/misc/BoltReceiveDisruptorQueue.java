@@ -246,8 +246,17 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
     public long getChainTimestamp() {
         long curr = _consumer.get() + 1;
-        AtomicReference<Object> mo = _buffer.get(curr);
-        Object o = mo.get();
+        int i = 0;
+        Object o;;
+        while ((o =_buffer.get(curr).get()) == null && i < 2) {
+            curr += ++i;
+        }
+
+        if (o == null) {
+            System.out.println("getChainTimestamp null here");
+            return 0;
+        }
+
         List<AddressedTuple> list = (List<AddressedTuple>) o;
 
         for (AddressedTuple addressedTuple : list) {
@@ -259,7 +268,7 @@ public class BoltReceiveDisruptorQueue extends DisruptorQueue {
 
         System.out.println("not CHAINSTAMP here");
 
-        return Long.MAX_VALUE - 1;
+        return 0;
     }
 }
 
