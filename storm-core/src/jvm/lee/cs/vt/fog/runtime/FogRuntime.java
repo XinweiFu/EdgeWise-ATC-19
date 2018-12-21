@@ -104,6 +104,9 @@ public class FogRuntime {
                 case "eda-chain":
                     policy = new EDAChainPolicy(bolts, storm_conf);
                     break;
+                case "eda-min-lat":
+                    policy = new EDAMinLatPolicy(bolts, storm_conf);
+                    break;
                 default:
                     policy = new EDADynamicPolicy(bolts);
                     break;
